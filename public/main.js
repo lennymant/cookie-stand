@@ -12,7 +12,7 @@ let config = {
 };
 
 // Set base path
-const basePath = '/cookies';
+const basePath = '/cookie-stand';
 
 // Fetch config on startup
 fetch(`${basePath}/api/config`)

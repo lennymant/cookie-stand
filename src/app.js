@@ -9,7 +9,7 @@ const app = express();
 app.use(express.json());
 app.use(express.static(path.join(__dirname, '../public')));
 app.use('/api', routes);
-app.use('/cookies/api', routes);
+app.use('/cookie-stand/api', routes);
 
 const PORT = process.env.PORT || config.server.port;
 app.listen(PORT, () => {
