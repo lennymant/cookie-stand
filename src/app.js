@@ -8,6 +8,11 @@ const config = require('./config');
 const app = express();
 app.use(express.json());
 
+// Redirect /cookies to /cookie-stand
+app.use('/cookies', (req, res) => {
+    res.redirect(301, '/cookie-stand' + req.path);
+});
+
 // Serve static files from the base path
 app.use(config.server.basePath, express.static(path.join(__dirname, '../public')));
 
