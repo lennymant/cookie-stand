@@ -74,7 +74,7 @@ Language:
 - Do NOT return markdown or extra formatting.`,
 
   generateCompanyProfile: (strategy, existingProfile) => `
-Update a company profile based on strategy changes.
+#################### Update a company profile based on strategy changes.
 
 Inputs:
 - Strategy: "${strategy}"
@@ -90,7 +90,7 @@ Return the profile as a single string in this format:
 }`,
 
   processRound: ({ currentStrategy, currentProfile, currentScenario, votes, wildcards, timeExpired }) => `
-Simulate the next round of business decision-making.
+#################### Simulate the next round of business decision-making.
 
 Current State:
 - Strategy: "${currentStrategy}"

@@ -4,57 +4,51 @@ const state = require('./state');
 const ai = require('./ai');
 const config = require('../config');
 
-let roundInProgress = false;
 let lastRoundTime = Date.now();
+let schedulerRunning = false;
+let roundInProgress = false;
 
 async function startRound() {
+  if (!schedulerRunning) {
+    console.log("⏳ Scheduler stopped, skipping round...");
+    return;
+  }
+
   if (roundInProgress) {
     console.log("⏳ Round already in progress, skipping...");
     return;
   }
 
-  const timeSinceLastRound = Date.now() - lastRoundTime;
-  if (timeSinceLastRound < config.intervals.strategyDuration) {
-    console.log(`⏳ Too soon for next round (${Math.ceil((config.intervals.strategyDuration - timeSinceLastRound) / 1000)}s remaining)`);
-    return;
-  }
-
   console.log("\n🌀 Starting new round...");
-  roundInProgress = true;
   lastRoundTime = Date.now();
+  roundInProgress = true;
 
   try {
+    // Get current state
     const currentState = state.getState();
-    const strategy = currentState.strategy;
+    
+    // Process the round to get new scenario and options
+    const result = await ai.processRound({
+      currentStrategy: currentState.strategy,
+      currentScenario: currentState.scenario,
+      currentProfile: currentState.companyProfile
+    });
 
-    // Step 1: Generate scenario
-    const scenario = await ai.generateScenario();
-    console.log("📢 Scenario:", scenario);
+    if (!result || !result.options || !Array.isArray(result.options)) {
+      throw new Error('Invalid options in processRound result');
+    }
 
-    // Step 2: Generate options
-    const rawOptions = await ai.generateOptions(scenario);
-
-    // Step 3: Score alignment
-    const scoredOptions = await Promise.all(
-      rawOptions.map(async (opt) => {
-        const result = await ai.scoreAlignment(strategy, opt.text);
-        return {
-          text: opt.text,
-          alignment: result.alignment,
-          explanation: result.explanation
-        };
-      })
-    );
-
-    // Step 4: Store for voting
-    state.resetRound(scenario, scoredOptions);
-
-    // Step 5: Wait for strategy duration, then resolve
-    setTimeout(resolveRound, config.intervals.strategyDuration);
+    // Start the round with new scenario and options
+    await state.startRound(result.newScenario, result.options);
+    
+    // Wait for strategy duration, then resolve
+    setTimeout(async () => {
+      await resolveRound();
+    }, config.intervals.strategyDuration);
   } catch (error) {
     console.error("❌ Error in round:", error);
     roundInProgress = false;
-    // Try again after a short delay
+    // Try again after a longer delay
     setTimeout(startRound, 5000);
   }
 }
@@ -66,36 +60,70 @@ async function resolveRound() {
 
     if (!winning) {
       console.log("⚠️ No votes this round. Strategy unchanged.");
+      // End the round in the state module
+      await state.endRound();
       roundInProgress = false;
+      // Start next round after a longer delay
+      if (schedulerRunning) {
+        setTimeout(startRound, 5000);
+      }
       return;
     }
 
     console.log("✅ Winning Option:", winning.text);
 
-    // Step 6: Update strategy
+    // Get current state
+    const currentState = state.getState();
+    console.log("Current Strategy:", currentState.strategy);
+
+    // Update strategy
     const { newStrategy, commentary } = await ai.updateStrategy(
-      state.getState().strategy,
+      currentState.strategy,
       winning.text
     );
 
-    state.updateStrategy(newStrategy, commentary, winning);
-
     console.log("🎯 New Strategy:", newStrategy);
     console.log("💬 Commentary:", commentary);
+
+    // Update state with new strategy
+    await state.updateStrategy(newStrategy, commentary, winning);
+
+    // Verify the update
+    const updatedState = state.getState();
+    console.log("Updated Strategy:", updatedState.strategy);
   } catch (error) {
     console.error("❌ Error resolving round:", error);
   } finally {
+    // End the round in the state module
+    await state.endRound();
     roundInProgress = false;
-    // Start the next round after a short delay
-    setTimeout(startRound, 1000);
+    // Start the next round after a longer delay
+    if (schedulerRunning) {
+      setTimeout(startRound, 5000);
+    }
   }
 }
 
 function beginScheduler() {
+  if (schedulerRunning) {
+    console.log("🔄 Scheduler already running");
+    return;
+  }
+  
+  schedulerRunning = true;
+  roundInProgress = false;
   console.log("🕒 Scheduler ready. Starting first round in 3 seconds...");
   setTimeout(startRound, 3000); // warm-up
 }
 
+function stopScheduler() {
+  schedulerRunning = false;
+  roundInProgress = false;
+  state.endRound(); // End any active round
+  console.log("🛑 Scheduler stopped");
+}
+
 module.exports = {
-  beginScheduler
+  beginScheduler,
+  stopScheduler
 };

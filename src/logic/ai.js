@@ -5,6 +5,7 @@ const prompts = require('./prompts');
 const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
 
 async function generateScenario() {
+  console.log('\n[ai.js] generateScenario: Generating new scenario');
   const res = await openai.chat.completions.create({
     model: "gpt-4",
     messages: [{ role: "user", content: prompts.generateScenario }]
@@ -12,25 +13,26 @@ async function generateScenario() {
   return res.choices[0].message.content.trim();
 }
 
-async function generateOptions(scenario) {
-  const res = await openai.chat.completions.create({
-    model: "gpt-4o",
-    messages: [{ role: "user", content: prompts.generateOptions(scenario) }]
-  });
-
-  const lines = res.choices[0].message.content.split('\n').filter(l => l.trim());
-  
-  // Log the raw lines
-  console.log('\n' + '='.repeat(80));
-  console.log('RAW OPTIONS FROM GPT:');
-  console.log('='.repeat(80));
-  lines.forEach((line, i) => console.log(`${i + 1}. ${line}`));
-  console.log('='.repeat(80) + '\n');
-
-  return lines.map(line => ({ text: line.replace(/^\d+\.\s*/, '') }));
-}
+// async function generateOptions(scenario) {
+//   const res = await openai.chat.completions.create({
+//     model: "gpt-4o",
+//     messages: [{ role: "user", content: prompts.generateOptions(scenario) }]
+//   });
+// 
+//   const lines = res.choices[0].message.content.split('\n').filter(l => l.trim());
+//   
+//   // Log the raw lines
+//   console.log('\n' + '='.repeat(80));
+//   console.log('RAW OPTIONS FROM GPT:');
+//   console.log('='.repeat(80));
+//   lines.forEach((line, i) => console.log(`${i + 1}. ${line}`));
+//   console.log('='.repeat(80) + '\n');
+// 
+//   return lines.map(line => ({ text: line.replace(/^\d+\.\s*/, '') }));
+// }
 
 async function scoreAlignment(strategy, optionText) {
+  console.log('\n[ai.js] scoreAlignment: Scoring alignment for option:', optionText);
   const res = await openai.chat.completions.create({
     model: "gpt-4",
     messages: [{ role: "user", content: prompts.scoreAlignment(strategy, optionText) }]
@@ -47,6 +49,7 @@ async function scoreAlignment(strategy, optionText) {
 }
 
 async function updateStrategy(currentStrategy, decisionText) {
+  console.log('\n[ai.js] updateStrategy: Updating strategy based on decision:', decisionText);
   const res = await openai.chat.completions.create({
     model: "gpt-4",
     messages: [{ role: "user", content: prompts.updateStrategy(currentStrategy, decisionText) }]
@@ -61,6 +64,7 @@ async function updateStrategy(currentStrategy, decisionText) {
 }
 
 async function generateCompanyProfile(strategy, existingProfile) {
+  console.log('\n[ai.js] generateCompanyProfile: Generating new company profile');
   const res = await openai.chat.completions.create({
     model: "gpt-4",
     messages: [{ role: "user", content: prompts.generateCompanyProfile(strategy, existingProfile) }]
@@ -77,6 +81,14 @@ async function processRound({
   wildcards = [],
   timeExpired = false
 }) {
+  console.log('\n\n\n\n\n\n\n\n\n[ai.js] processRound: Processing round with:');
+  console.log('- Strategy:', JSON.stringify(currentStrategy, null, 2));
+  console.log('- Scenario:', currentScenario);
+  console.log('- Profile:', currentProfile);
+  console.log('- Votes:', votes.length);
+  console.log('- Wildcards:', wildcards.length);
+  console.log('- Time Expired:', timeExpired);
+
   try {
     const prompt = prompts.processRound({
       currentStrategy,
@@ -91,7 +103,7 @@ async function processRound({
     console.log('\n' + '='.repeat(80));
     console.log('PROMPT SENT TO GPT:');
     console.log('='.repeat(80));
-    console.log(prompt);
+    // console.log(prompt);
     console.log('='.repeat(80) + '\n');
 
     const res = await openai.chat.completions.create({
@@ -119,9 +131,12 @@ async function processRound({
         .replace(/\u00A0/g, ' ')
         .trim();
 
-      console.log('Sanitized content:', sanitizedContent);
+      //console.log('Sanitized content:', sanitizedContent);
 
       const result = JSON.parse(sanitizedContent);
+
+      // Log the parsed result
+      console.log('\nParsed result:', JSON.stringify(result, null, 2));
 
       // Validate the result has all required fields
       if (!result.newStrategy) {
@@ -179,6 +194,10 @@ async function processRound({
 }
 
 async function analyzeVotingPatterns(votes, wildcards) {
+  console.log('\n[ai.js] analyzeVotingPatterns: Analyzing voting patterns');
+  console.log('- Votes:', votes.length);
+  console.log('- Wildcards:', wildcards.length);
+
   const prompt = `Analyze the following voting and wildcard history to identify patterns and trends:
 
 Votes:
@@ -199,7 +218,7 @@ IMPORTANT: Format your response exactly as shown above, with "User Patterns:" an
 
   try {
     const response = await openai.chat.completions.create({
-      model: "gpt-4",
+      model: "gpt-4o",
       messages: [
         {
           role: "system",
@@ -245,6 +264,7 @@ IMPORTANT: Format your response exactly as shown above, with "User Patterns:" an
       }
     }
     
+    console.log('ANALYSIS:', JSON.stringify(analysis, null, 2));
     return analysis;
   } catch (error) {
     console.error('Error analyzing voting patterns:', error);
@@ -257,7 +277,7 @@ IMPORTANT: Format your response exactly as shown above, with "User Patterns:" an
 
 module.exports = {
   generateScenario,
-  generateOptions,
+  // generateOptions,
   scoreAlignment,
   updateStrategy,
   generateCompanyProfile,

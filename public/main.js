@@ -99,7 +99,7 @@ async function fetchState() {
       throw new Error(`HTTP error! status: ${res.status}`);
     }
     const data = await res.json();
-    console.log('Received state data:', data);
+    //console.log('Received state data:', data);
 
     // Check if strategy has changed
     if (currentStrategy && data.strategy !== currentStrategy) {
@@ -122,7 +122,7 @@ async function fetchState() {
       const monthText = data.currentMonth ? `Month ${data.currentMonth} - ` : '';
       const scenarioText = data.scenario || "Waiting for scenario...";
       scenarioElement.textContent = monthText + scenarioText;
-      console.log('Updated scenario:', monthText + scenarioText);
+      //console.log('Updated scenario:', monthText + scenarioText);
     }
 
     // Update strategy
@@ -148,24 +148,30 @@ async function fetchState() {
     if (!container) return;
     
     // If user has voted in this round, show the vote confirmation
-    if (lastVotedOption) {
+    if (data.hasVoted) {
       container.innerHTML = `
         <div class="vote-confirmation">
           <h2>You voted to:</h2>
-          <div class="voted-option">${lastVotedOption}</div>
+          <div class="voted-option">${lastVotedOption || "Waiting for next round..."}</div>
           <div class="waiting-text">Waiting for next round...</div>
         </div>
       `;
       return;
     }
 
-    // Handle empty or invalid options
-    if (!data.options || !Array.isArray(data.options) || data.options.length === 0) {
-      container.innerHTML = '<p>No options available yet...</p>';
+    // If round is not in progress, show waiting message
+    if (!data.roundInProgress) {
+      container.innerHTML = '<p>Waiting for next round...</p>';
       return;
     }
 
-    // Create a document fragment for better performance
+    // Handle empty or invalid options
+    if (!data.options || !Array.isArray(data.options) || data.options.length === 0) {
+      container.innerHTML = '<p>Waiting for options...</p>';
+      return;
+    }
+
+    // Only show options if we have valid options and the user hasn't voted
     const fragment = document.createDocumentFragment();
     
     data.options.forEach(option => {
@@ -237,6 +243,9 @@ async function vote(optionId) {
           <div class="waiting-text">Waiting for next round...</div>
         </div>
       `;
+
+      // Force a state refresh to ensure server has the vote
+      await fetchState();
     }
   } catch (error) {
     console.error('Error voting:', error);
@@ -291,6 +300,11 @@ function updateCountdown() {
 function clearVoteState() {
   localStorage.removeItem("lastVotedOption");
   lastVotedOption = null;
+  // Clear the options container
+  const optionsContainer = document.getElementById("options");
+  if (optionsContainer) {
+    optionsContainer.innerHTML = '<p>Waiting for next round...</p>';
+  }
 }
 
 async function forceNextRound() {

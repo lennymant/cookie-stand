@@ -20,7 +20,9 @@ let users = []; // { id, name }
 let tickerLog = []; // [{ type, user, option, timestamp }]
 let votingAnalysis = null; // Store the latest voting analysis
 let isInitialized = false;
-let currentMonth = 0; // Change round counter to month counter
+let currentMonth = 1; // Start at month 1
+let votedUsers = new Set(); // Track users who have voted in the current round
+let roundInProgress = false; // Track if a round is in progress
 
 const USERS_FILE = path.join(__dirname, '../../data/users.json');
 
@@ -63,7 +65,6 @@ let strategyStartTime = Date.now();
 // Scheduler control variables
 let schedulerRunning = false;
 let schedulerTimeout = null;
-let roundInProgress = false;
 let lastRoundTime = Date.now();
 
 // Log initial state
@@ -84,59 +85,25 @@ function getStrategyTimeRemaining() {
 async function initialize() {
   try {
     logWithTimestamp('Starting game state initialization...');
-    logWithTimestamp('Initial company profile:', companyProfile);
     
-    // First try to get initial values from config
-    if (!companyProfile) {
-      companyProfile = config.company.initialProfile;
-      logWithTimestamp('Using initial profile from config:', companyProfile);
-    }
+    // Set initial values
+    strategy = config.company.initialStrategy;
+    companyProfile = config.company.initialProfile;
+    currentScenario = "Welcome to Cookie Stand! Let's start our first month.";
+    currentMonth = 1;
     
-    if (!strategy) {
-      strategy = config.company.initialStrategy;
-      logWithTimestamp('Using initial strategy from config:', strategy);
-    }
-
-    // Generate initial scenario
-    const initialScenario = await ai.generateScenario();
-    logWithTimestamp('Generated initial scenario:', initialScenario);
-    currentScenario = initialScenario;
-
+    // Get initial options
     const result = await ai.processRound({
       currentStrategy: strategy,
-      currentScenario: initialScenario,
+      currentScenario: currentScenario,
       currentProfile: companyProfile
     });
-    
-    logWithTimestamp('Received initialization result:', result);
-    
-    if (!result) {
-      throw new Error('No result received from processRound');
-    }
 
-    if (!result.options || !Array.isArray(result.options)) {
+    if (!result || !result.options || !Array.isArray(result.options)) {
       throw new Error('Invalid options in initialization result');
     }
 
-    if (!result.newProfile) {
-      logWithTimestamp('Warning: No new profile in result, using existing profile');
-    } else {
-      companyProfile = result.newProfile;
-    }
-
-    if (!result.newStrategy) {
-      logWithTimestamp('Warning: No new strategy in result, using existing strategy');
-    } else {
-      strategy = result.newStrategy;
-    }
-
-    // Keep the generated scenario if no new one is provided
-    if (!result.newScenario) {
-      logWithTimestamp('Warning: No new scenario in result, using generated scenario');
-    } else {
-      currentScenario = result.newScenario;
-    }
-
+    // Initialize options
     options = result.options.map((opt, i) => ({
       id: `${Date.now()}_${i}`,
       text: opt.text || "Option " + (i + 1),
@@ -145,34 +112,39 @@ async function initialize() {
       votes: []
     }));
 
-    logWithTimestamp(`Initialized with ${options.length} options`);
-    logWithTimestamp('Updated company profile:', companyProfile);
-    logWithTimestamp('Updated strategy:', strategy);
-    logWithTimestamp('Current scenario:', currentScenario);
+    // Set round as in progress
+    roundInProgress = true;
+    
+    logWithTimestamp('Game initialized:', {
+      strategy,
+      currentMonth,
+      optionsCount: options.length,
+      roundInProgress
+    });
+
     isInitialized = true;
   } catch (error) {
     logWithTimestamp(`Failed to initialize: ${error.message}`);
     logWithTimestamp('Stack trace:', error.stack);
     
-    // Set some default values even if initialization fails
-    if (!companyProfile) companyProfile = config.company.initialProfile;
-    if (!strategy) strategy = config.company.initialStrategy;
-    if (!currentScenario) currentScenario = "Waiting for first scenario...";
-    if (!options.length) {
-      options = [
-        {
-          id: `${Date.now()}_0`,
-          text: "Option 1",
-          alignment: 0,
-          explanation: '',
-          votes: []
-        }
-      ];
-    }
+    // Set default values even if initialization fails
+    strategy = config.company.initialStrategy;
+    companyProfile = config.company.initialProfile;
+    currentScenario = "Welcome to Cookie Stand! Let's start our first month.";
+    currentMonth = 1;
+    options = [
+      {
+        id: `${Date.now()}_0`,
+        text: "Option 1",
+        alignment: 0,
+        explanation: '',
+        votes: []
+      }
+    ];
+    roundInProgress = true;
+    isInitialized = true;
     
-    isInitialized = true; // Mark as initialized even with defaults
     logWithTimestamp('Using default values after initialization failure');
-    logWithTimestamp('Current state:', getState());
   }
 }
 
@@ -182,7 +154,7 @@ initialize().catch(error => {
   // Set default values
   companyProfile = config.company.initialProfile;
   strategy = config.company.initialStrategy;
-  currentScenario = "Waiting for first scenario...";
+  currentScenario = "Welcome to Cookie Stand! Let's start our first month.";
   options = [
     {
       id: `${Date.now()}_0`,
@@ -207,6 +179,12 @@ function resetRound(scenario, newOptions) {
 }
 
 function vote(userId, optionId) {
+  // If user has already voted in this round, ignore the vote
+  if (votedUsers.has(userId)) {
+    logWithTimestamp(`User ${userId} already voted in this round`);
+    return;
+  }
+
   // Remove any existing votes from this user
   options.forEach(opt => {
     const index = opt.votes.indexOf(userId);
@@ -224,6 +202,9 @@ function vote(userId, optionId) {
       displayName: displayName
     });
 
+    // Add user to voted users set
+    votedUsers.add(userId);
+
     // Log vote to console
     logWithTimestamp(`Vote received from ${displayName} for option: "${selected.text}"`);
 
@@ -236,6 +217,9 @@ function vote(userId, optionId) {
     });
 
     if (tickerLog.length > config.ui.maxTickerEntries) tickerLog.shift();
+
+    // Clear options immediately after vote
+    options = [];
   }
 }
 
@@ -273,40 +257,97 @@ function getState(userId) {
       companyProfile: companyProfile || "Initializing...",
       scenario: currentScenario || "Initializing...",
       currentScenario: currentScenario || "Initializing...",
+      currentMonth: currentMonth || 1,
       options: [],
       users: [],
       roundHistory: [],
       strategyTimeRemaining: 60,
       userName: null,
       votingAnalysis: null,
-      currentMonth: 0
+      hasVoted: false,
+      roundInProgress: false
     };
   }
   
   const user = userId ? users.find(u => u.id === userId) : null;
+  
+  // Log state for debugging
+  logWithTimestamp('Current state:', {
+    strategy,
+    companyProfile,
+    currentScenario,
+    currentMonth,
+    roundInProgress,
+    hasVoted: votedUsers.has(userId),
+    optionsCount: options.length,
+    usersCount: users.length,
+    roundHistoryCount: roundHistory.length,
+    strategyTimeRemaining: getStrategyTimeRemaining()
+  });
+
+  // Format strategy and company profile
+  let formattedStrategy = strategy;
+  let formattedProfile = companyProfile;
+
+  // Try to parse strategy as JSON
+  if (typeof strategy === 'string') {
+    try {
+      formattedStrategy = JSON.parse(strategy);
+    } catch (e) {
+      // If not JSON, format as markdown
+      formattedStrategy = strategy
+        .replace(/\*\*(.*?)\*\*/g, '<h3>$1</h3>')
+        .replace(/- (.*?)(?=\n|$)/g, '<p>$1</p>')
+        .replace(/\n/g, '');
+    }
+  }
+
+  // Try to parse company profile as JSON
+  if (typeof companyProfile === 'string') {
+    try {
+      formattedProfile = JSON.parse(companyProfile);
+    } catch (e) {
+      // If not JSON, clean up the text
+      formattedProfile = companyProfile
+        .replace(/New Company Profile:/g, '')
+        .replace(/----------------------------------------/g, '')
+        .replace(/================================================================================/g, '')
+        .replace(/Current Company Profile:/g, '')
+        .trim();
+    }
+  }
+  
   const state = {
-    strategy: strategy || "Initializing...",
-    companyProfile: companyProfile || "Initializing...",
+    strategy: formattedStrategy,
+    companyProfile: formattedProfile,
     scenario: currentScenario || "Initializing...",
     currentScenario: currentScenario || "Initializing...",
-    options,
+    currentMonth,
+    options: roundInProgress && !votedUsers.has(userId) ? options : [], // Only return options if round is in progress and user hasn't voted
     users,
     roundHistory,
     strategyTimeRemaining: getStrategyTimeRemaining(),
     userName: user ? user.name : null,
     votingAnalysis,
-    currentMonth
+    hasVoted: votedUsers.has(userId),
+    roundInProgress
   };
-  
-  // Only log if there's a significant state change
-  if (state.strategyTimeRemaining === 0 || state.strategyTimeRemaining === 60) {
-    logWithTimestamp(`Strategy time remaining: ${state.strategyTimeRemaining}s`);
-  }
   
   return state;
 }
 
 async function updateStrategy(newStrategy, commentary, selectedOption) {
+  console.log(`\n🌀 Processing Month ${currentMonth}...`);
+  console.log("Current Strategy:", strategy);
+  console.log("New Strategy:", newStrategy);
+
+  // Update strategy immediately
+  strategy = newStrategy;
+  console.log("Strategy updated to:", strategy);
+
+  // Clear voted users set for new round
+  votedUsers.clear();
+
   // Get recent votes and wildcards
   const recentVotes = tickerLog
     .filter(entry => entry.type === 'vote')
@@ -356,12 +397,17 @@ async function updateStrategy(newStrategy, commentary, selectedOption) {
       votes: recentVotes,
       wildcards: recentWildcards
     });
-    votingAnalysis = await ai.analyzeVotingPatterns(recentVotes, recentWildcards);
-    console.log('Generated voting analysis:', votingAnalysis);
+    
+    // Generate voting analysis
+    const analysis = await ai.analyzeVotingPatterns(recentVotes, recentWildcards);
+    console.log('Generated voting analysis:', analysis);
+    
+    // Store the analysis in the state
+    votingAnalysis = analysis;
     console.log('-'.repeat(40));
 
     const result = await ai.processRound({
-      currentStrategy: strategy,
+      currentStrategy: strategy, // Use the updated strategy
       currentScenario,
       currentProfile: companyProfile,
       votes: recentVotes,
@@ -389,20 +435,13 @@ async function updateStrategy(newStrategy, commentary, selectedOption) {
       result.newScenario = currentScenario;
     }
 
-    if (!result.options || !Array.isArray(result.options)) {
-      console.warn('Invalid options in result, using current options');
-      result.options = options;
-    }
-
     // Update state with new values
-    strategy = result.newStrategy;
+    strategy = result.newStrategy; // Update strategy again with the new value
     companyProfile = result.newProfile;
     currentScenario = result.newScenario;
-    options = result.options.map((opt, i) => ({
-      id: `${Date.now()}_${i}`,
-      ...opt,
-      votes: []
-    }));
+    
+    // Clear options array - they will be set in the next round
+    options = [];
 
     console.log('New Company Profile:');
     console.log('-'.repeat(40));
@@ -413,14 +452,15 @@ async function updateStrategy(newStrategy, commentary, selectedOption) {
     // Record in history
     roundHistory.push({
       timestamp: new Date().toISOString(),
+      month: currentMonth,
       scenario: currentScenario,
       selected: selectedOption,
       commentary,
-      strategy: newStrategy,
+      strategy: strategy, // Use the current strategy
       companyProfile,
       votes: recentVotes,
       wildcards: recentWildcards,
-      votingAnalysis
+      votingAnalysis: analysis
     });
 
     // Trim history if it gets too long
@@ -431,6 +471,9 @@ async function updateStrategy(newStrategy, commentary, selectedOption) {
     // Reset the timer AFTER all updates are complete
     strategyStartTime = Date.now();
     logWithTimestamp('Timer reset after strategy update');
+    
+    // Log final state
+    console.log("Final Strategy:", strategy);
   } catch (error) {
     logWithTimestamp(`Failed to process round update: ${error.message}`);
     logWithTimestamp('Stack trace:', error.stack);
@@ -500,58 +543,47 @@ function beginScheduler() {
   
   console.log("🕒 Scheduler ready. Starting first round in 3 seconds...");
   strategyStartTime = Date.now(); // Reset timer when starting
-  schedulerTimeout = setTimeout(startRound, 3000); // warm-up
+  schedulerTimeout = setTimeout(() => {
+    const scheduler = require('./scheduler');
+    scheduler.beginScheduler();
+  }, 3000); // warm-up
 }
 
-// Modify startRound to use the timeout variable
-async function startRound() {
-  if (!schedulerRunning) return;
-  
+// Modify startRound to use processRound for scenario generation
+async function startRound(newScenario, newOptions) {
   if (roundInProgress) {
     console.log("⏳ Round already in progress, skipping...");
     return;
   }
 
-  currentMonth++; // Increment month counter
   console.log(`\n🌀 Starting Month ${currentMonth}...`);
   roundInProgress = true;
-  lastRoundTime = Date.now();
-  strategyStartTime = Date.now(); // Reset timer for this round
+  votedUsers.clear();
 
   try {
-    const currentState = getState();
-    const strategy = currentState.strategy;
+    // Update scenario and options
+    if (newScenario) {
+      currentScenario = newScenario;
+    }
+    
+    if (newOptions && Array.isArray(newOptions)) {
+      options = newOptions.map((opt, i) => ({
+        id: `${Date.now()}_${i}`,
+        text: opt.text || "Option " + (i + 1),
+        alignment: opt.alignment || 0,
+        explanation: opt.explanation || '',
+        votes: []
+      }));
+    }
 
-    // Step 1: Generate scenario
-    const scenario = await ai.generateScenario();
-    console.log(`📢 Month ${currentMonth} Scenario:`, scenario);
-    currentScenario = scenario; // Update the current scenario immediately
-
-    // Step 2: Generate options
-    const rawOptions = await ai.generateOptions(scenario);
-
-    // Step 3: Score alignment
-    const scoredOptions = await Promise.all(
-      rawOptions.map(async (opt) => {
-        const result = await ai.scoreAlignment(strategy, opt.text);
-        return {
-          text: opt.text,
-          alignment: result.alignment,
-          explanation: result.explanation
-        };
-      })
-    );
-
-    // Step 4: Store for voting
-    resetRound(scenario, scoredOptions);
-
-    // Step 5: Wait for strategy duration, then resolve
-    schedulerTimeout = setTimeout(resolveRound, config.intervals.strategyDuration);
+    logWithTimestamp('Round started with:', {
+      scenario: currentScenario,
+      optionsCount: options.length
+    });
   } catch (error) {
-    console.error("❌ Error in round:", error);
+    console.error('Error starting round:', error);
     roundInProgress = false;
-    // Try again after a short delay
-    schedulerTimeout = setTimeout(startRound, 5000);
+    throw error;
   }
 }
 
@@ -596,9 +628,21 @@ async function resolveRound() {
 
 function startScheduler() {
   if (schedulerRunning) return;
+  
   schedulerRunning = true;
-  strategyStartTime = Date.now(); // Reset timer when starting
-  beginScheduler();
+  strategyStartTime = Date.now();
+  
+  // Initialize the game if not already initialized
+  if (!isInitialized) {
+    initialize().then(() => {
+      logWithTimestamp('Game initialized, starting scheduler...');
+      beginScheduler();
+    }).catch(error => {
+      logWithTimestamp('Failed to initialize game:', error);
+    });
+  } else {
+    beginScheduler();
+  }
 }
 
 function stopScheduler() {
@@ -615,6 +659,30 @@ function isSchedulerRunning() {
   return schedulerRunning;
 }
 
+function endRound() {
+  logWithTimestamp('Ending round. Previous state:', {
+    roundInProgress,
+    optionsCount: options.length,
+    votedUsersCount: votedUsers.size,
+    currentMonth
+  });
+  
+  roundInProgress = false;
+  options = []; // Clear options when round ends
+  votedUsers.clear(); // Clear voted users for next round
+  
+  // Increment month counter here, after the round is fully processed
+  currentMonth++;
+  logWithTimestamp(`Month incremented to ${currentMonth}`);
+  
+  logWithTimestamp('Round ended. New state:', {
+    roundInProgress,
+    optionsCount: options.length,
+    votedUsersCount: votedUsers.size,
+    currentMonth
+  });
+}
+
 module.exports = {
   resetRound,
   vote,
@@ -627,5 +695,7 @@ module.exports = {
   logWithTimestamp,
   startScheduler,
   stopScheduler,
-  isSchedulerRunning
+  isSchedulerRunning,
+  startRound,
+  endRound
 };

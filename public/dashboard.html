@@ -724,7 +724,7 @@
                                 <h3>User Patterns</h3>
                                 <ul>
                                     ${data.votingAnalysis.userPatterns.map(pattern => `
-                                        <li><strong>${pattern.user}</strong>: ${pattern.pattern}</li>
+                                        <li><strong>${pattern.user}</strong>: ${pattern.pattern} (${pattern.frequency})</li>
                                     `).join('')}
                                 </ul>
                             ` : ''}
