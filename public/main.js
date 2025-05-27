@@ -152,18 +152,44 @@ async function fetchState() {
     const container = document.getElementById("options");
     if (!container) return;
     
+    // If round is not in progress, show waiting message
+    if (!data.roundInProgress) {
+      container.innerHTML = '<p>Waiting for next round...</p>';
+      return;
+    }
+    
     // If user has voted in this round, show the vote confirmation
     if (data.hasVoted) {
-      // Get the stored vote text
-      const storedVote = localStorage.getItem("lastVotedOption");
-      console.log('Retrieved stored vote:', storedVote);
-      
-      if (!storedVote) {
-        console.log('No stored vote found, checking lastVotedOption:', lastVotedOption);
+      // Try to get the vote text from the current options if available
+      let votedText = null;
+      if (data.votedOptionId && data.options && Array.isArray(data.options)) {
+        const votedOption = data.options.find(opt => opt.id === data.votedOptionId);
+        if (votedOption) {
+          votedText = votedOption.text;
+          console.log('Found vote text in current options:', votedText);
+        }
       }
       
-      const votedText = storedVote || lastVotedOption || "Your vote has been recorded";
-      console.log('Using vote text:', votedText);
+      // If not found in current options, try localStorage
+      if (!votedText) {
+        const storedVote = localStorage.getItem("lastVotedOption");
+        console.log('Retrieved stored vote from localStorage:', storedVote);
+        votedText = storedVote;
+      }
+      
+      // If still not found, use lastVotedOption variable
+      if (!votedText) {
+        console.log('Using lastVotedOption variable:', lastVotedOption);
+        votedText = lastVotedOption;
+      }
+      
+      // If still no vote text found, use default message
+      if (!votedText) {
+        console.log('No vote text found, using default message');
+        votedText = "Your vote has been recorded";
+      }
+      
+      console.log('Final vote text to display:', votedText);
       
       container.innerHTML = `
         <div class="vote-confirmation">
@@ -171,12 +197,6 @@ async function fetchState() {
           <div class="voted-option">${votedText}</div>
         </div>
       `;
-      return;
-    }
-
-    // If round is not in progress, show waiting message
-    if (!data.roundInProgress) {
-      container.innerHTML = '<p>Waiting for next round...</p>';
       return;
     }
 
@@ -206,29 +226,11 @@ async function fetchState() {
       `;
       fragment.appendChild(div);
     });
-
-    // Clear and update container in one operation
+    
     container.innerHTML = '';
     container.appendChild(fragment);
-
-    // Update user name if available in the response
-    if (data.userName && data.userName !== "Loading..." && !data.userName.startsWith("user_")) {
-      localStorage.setItem("userName", data.userName);
-      updateUserName(data.userName);
-    } else {
-      const storedName = localStorage.getItem("userName");
-      if (storedName && !storedName.startsWith("user_")) {
-        updateUserName(storedName);
-      } else {
-        updateUserName("Click to set name");
-      }
-    }
   } catch (error) {
     console.error('Error fetching state:', error);
-    const container = document.getElementById("options");
-    if (container) {
-      container.innerHTML = `<p>Error loading options: ${error.message}</p>`;
-    }
   }
 }
 
@@ -246,12 +248,12 @@ async function vote(optionId) {
     });
 
     if (res.ok) {
-      // Store the voted option
+      // Store the voted option text
       localStorage.setItem("lastVotedOption", votedOption);
       lastVotedOption = votedOption;
       console.log('Stored vote:', votedOption);
 
-      // Update UI immediately
+      // Update UI immediately with the actual vote text
       const optionsContainer = document.getElementById("options");
       optionsContainer.innerHTML = `
         <div class="vote-confirmation">

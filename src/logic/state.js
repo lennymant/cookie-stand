@@ -218,9 +218,6 @@ function vote(userId, optionId) {
     });
 
     if (tickerLog.length > config.ui.maxTickerEntries) tickerLog.shift();
-
-    // Clear options immediately after vote
-    options = [];
   }
 }
 
@@ -278,6 +275,17 @@ function getState(userId) {
       }
     }
   }
+
+  // Find the option the user voted for
+  let votedOptionId = null;
+  if (userId && votedUsers.has(userId)) {
+    const votedOption = options.find(opt => 
+      opt.votes.some(v => typeof v === 'object' ? v.userId === userId : v === userId)
+    );
+    if (votedOption) {
+      votedOptionId = votedOption.id;
+    }
+  }
   
   return {
     strategy: parsedStrategy,
@@ -291,7 +299,8 @@ function getState(userId) {
     roundInProgress,
     currentMonth,
     currentScenario,
-    options
+    options,
+    votedOptionId // Add the voted option ID to the state
   };
 }
 
@@ -306,13 +315,23 @@ async function updateVotingAnalysis() {
       .filter(entry => entry.type === 'wildcard')
       .map(entry => ({ user: entry.user, option: entry.option }));
 
-    // Generate new analysis
-    const analysis = await ai.analyzeVotingPatterns(recentVotes, recentWildcards);
-    votingAnalysis = analysis;
-    
-    logWithTimestamp('Voting analysis updated');
+    // Only update analysis if we have new data
+    if (recentVotes.length > 0 || recentWildcards.length > 0) {
+      // Generate new analysis
+      const analysis = await ai.analyzeVotingPatterns(recentVotes, recentWildcards);
+      votingAnalysis = analysis;
+      logWithTimestamp('Voting analysis updated');
+    } else if (!votingAnalysis) {
+      // If we have no analysis yet, create an empty one
+      votingAnalysis = {
+        userPatterns: [],
+        generalPatterns: ["No voting patterns available yet"]
+      };
+    }
+    // If we have no new data but existing analysis, keep the existing analysis
   } catch (error) {
     logWithTimestamp(`Error updating voting analysis: ${error.message}`);
+    // Keep existing analysis on error
   }
 }
 
@@ -605,9 +624,15 @@ function endRound() {
     currentMonth
   });
   
+  // Set round as not in progress first
   roundInProgress = false;
+  
+  // Clear all round-specific data
   options = []; // Clear options when round ends
   votedUsers.clear(); // Clear voted users for next round
+  
+  // Preserve voting analysis by not clearing it
+  // votingAnalysis will be updated by the votingAnalysisTimer
   
   // Increment month counter here, after the round is fully processed
   currentMonth++;

@@ -56,22 +56,29 @@ Inputs:
 - Current strategy: "${currentStrategy}"
 - Team decision: "${decision}"
 
-Output structure must be a JSON object with this format:
+Return a JSON object with this exact format:
 {
-  "updatedStrategy": {
-    "headline": "Short strategy headline (under 10 words)",
-    "bullets": [
-      "Bullet point 1",
-      "Bullet point 2",
-      "Optional bullet point 3"
-    ],
-    "explanation": "1–2 sentence explanation of the change"
-  }
+  "newStrategy": {
+    "ProductServiceStrategy": {
+      "summary": "Brief summary of product/service strategy",
+      "bullets": ["point 1", "point 2"]
+    },
+    "OperationsFinanceStrategy": {
+      "summary": "Brief summary of operations and finance strategy",
+      "bullets": ["point 1", "point 2"]
+    },
+    "MarketingStrategy": {
+      "summary": "Brief summary of marketing strategy",
+      "bullets": ["point 1", "point 2"]
+    }
+  },
+  "commentary": "1-2 sentence explanation of the changes"
 }
 
 Language:
 - Use clear and simple business English.
-- Do NOT return markdown or extra formatting.`,
+- Do NOT return markdown or extra formatting.
+- Ensure the JSON is properly formatted with no trailing commas.`,
 
   generateCompanyProfile: (strategy, existingProfile) => `
 #################### Update a company profile based on strategy changes.
@@ -140,7 +147,7 @@ JSON format:
       "bullets": ["point 1", "point 2", "optional point 3"]
     }
   },
-  "newCompany_Profile": "Revised company profile (2–3 sentences). Incremental updates only.",
+  "newCompany_Profile": "Revised company profile (2–3 sentences). Incremental updates only. Separate with carriage returns.  Speak in the first person as WE.  First line is a brand marketing strapline.  Second line is an ambitious mission statement, from the whole strategy.  Lines 3-4 if required expand on the strategy.",
   "newScenario": "New business challenge (1 sentence). Keep it simple.",
   "options": [
     {

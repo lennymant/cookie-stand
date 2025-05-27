@@ -49,7 +49,7 @@ async function startRound() {
     console.error("❌ Error in round:", error);
     roundInProgress = false;
     // Try again after a longer delay
-    setTimeout(startRound, 5000);
+    setTimeout(startRound, config.intervals.roundEndDelay);
   }
 }
 
@@ -65,7 +65,7 @@ async function resolveRound() {
       roundInProgress = false;
       // Start next round after a longer delay
       if (schedulerRunning) {
-        setTimeout(startRound, 5000);
+        setTimeout(startRound, config.intervals.roundEndDelay);
       }
       return;
     }
@@ -99,7 +99,7 @@ async function resolveRound() {
     roundInProgress = false;
     // Start the next round after a longer delay
     if (schedulerRunning) {
-      setTimeout(startRound, 5000);
+      setTimeout(startRound, config.intervals.roundEndDelay);
     }
   }
 }

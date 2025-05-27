@@ -56,11 +56,19 @@ async function updateStrategy(currentStrategy, decisionText) {
   });
 
   const output = res.choices[0].message.content.trim();
-  const [newStrategy, ...commentaryParts] = output.split('\n');
-  return {
-    newStrategy: newStrategy.trim(),
-    commentary: commentaryParts.join(' ').trim()
-  };
+  
+  try {
+    // Parse the output as JSON
+    const result = JSON.parse(output);
+    return {
+      newStrategy: result.newStrategy,
+      commentary: result.commentary || ''
+    };
+  } catch (error) {
+    console.error('Error parsing strategy update:', error);
+    console.error('Raw output:', output);
+    throw new Error(`Failed to parse strategy update: ${error.message}`);
+  }
 }
 
 async function generateCompanyProfile(strategy, existingProfile) {
@@ -225,7 +233,7 @@ General Patterns:
 - [pattern description]
 
 IMPORTANT: Format your response exactly as shown above, with "User Patterns:" and "General Patterns:" sections.
-if there isn't enough data - simply return "Insufficient data for vote analysis.`;
+if there isn't enough data - Return a single paragraph which summarises the general information in the votes and wildcards.`;
 
   try {
     const response = await openai.chat.completions.create({
@@ -246,6 +254,8 @@ if there isn't enough data - simply return "Insufficient data for vote analysis.
 
     const content = response.choices[0].message.content.trim();
     
+console.log("\n\n\n\n\nVOTING PATTERNS RESPONSE:", content, "\n\n\n\n\n\n");
+
     // Parse the response into structured data
     const analysis = {
       userPatterns: [],
