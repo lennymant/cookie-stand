@@ -1,0 +1,249 @@
+/* Dashboard Color Palette - Darker, more professional variant */
+:root {
+  --cookie-dough: #f5e6d3;
+  --cookie-chocolate: #4a2c2a;
+  --cookie-sugar: #fff5e6;
+  --cookie-frosting: #ffd6a5;
+  --cookie-sprinkles: #ff9a5a;
+  --cookie-shadow: rgba(74, 44, 42, 0.1);
+}
+
+body {
+  margin: 0;
+  padding: 20px;
+  font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+  background-color: var(--cookie-dough);
+  color: var(--cookie-chocolate);
+}
+
+.dashboard-container {
+  display: grid;
+  grid-template-columns: 1fr 1fr 1fr;
+  gap: 20px;
+  max-width: 1800px;
+  margin: 0 auto;
+}
+
+.column {
+  background: var(--cookie-sugar);
+  border-radius: 12px;
+  padding: 20px;
+  box-shadow: 0 4px 6px var(--cookie-shadow);
+}
+
+/* Company Profile & Strategy Section */
+.profile-column {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.company-profile, .strategy-section {
+  background: white;
+  padding: 20px;
+  border-radius: 8px;
+  box-shadow: 0 2px 4px var(--cookie-shadow);
+}
+
+.company-profile h2, .strategy-section h2 {
+  color: var(--cookie-chocolate);
+  margin-top: 0;
+  border-bottom: 2px solid var(--cookie-frosting);
+  padding-bottom: 10px;
+}
+
+/* Strategy section styles */
+.strategy-section {
+  background: white;
+  padding: 20px;
+  border-radius: 8px;
+  box-shadow: 0 2px 4px var(--cookie-shadow);
+}
+
+.strategy-section h2 {
+  color: var(--cookie-chocolate);
+  margin-top: 0;
+  border-bottom: 2px solid var(--cookie-frosting);
+  padding-bottom: 10px;
+}
+
+.strategy-section h3 {
+  margin: 0 0 15px 0;
+  color: var(--cookie-chocolate);
+  font-size: 1.2rem;
+  font-weight: 600;
+  border-bottom: 2px solid var(--cookie-frosting);
+  padding-bottom: 8px;
+}
+
+.strategy-section h4 {
+  margin: 15px 0 10px 0;
+  color: var(--cookie-chocolate);
+  font-size: 1.1rem;
+  font-weight: 600;
+}
+
+.strategy-section strong {
+  color: var(--cookie-chocolate);
+  font-weight: 600;
+}
+
+.strategy-section ul {
+  margin: 0;
+  padding-left: 20px;
+}
+
+.strategy-section li {
+  margin: 8px 0;
+  line-height: 1.4;
+  color: var(--cookie-chocolate);
+}
+
+/* Admin Controls */
+.admin-controls {
+  background: var(--cookie-frosting);
+  padding: 20px;
+  border-radius: 8px;
+  box-shadow: 0 2px 4px var(--cookie-shadow);
+}
+
+.admin-controls h3 {
+  color: var(--cookie-chocolate);
+  margin-top: 0;
+}
+
+.admin-button {
+  background: var(--cookie-sprinkles);
+  color: white;
+  border: none;
+  padding: 10px 20px;
+  border-radius: 6px;
+  cursor: pointer;
+  font-weight: bold;
+  transition: background-color 0.3s ease;
+  margin-right: 10px;
+}
+
+.admin-button:hover {
+  background: var(--cookie-chocolate);
+}
+
+/* Ticker Section */
+.ticker-section {
+  height: 100%;
+  overflow: hidden;
+}
+
+.ticker-section h2 {
+  color: var(--cookie-chocolate);
+  margin-top: 0;
+  border-bottom: 2px solid var(--cookie-frosting);
+  padding-bottom: 10px;
+}
+
+#ticker {
+  height: calc(100% - 60px);
+  overflow-y: auto;
+  padding-right: 10px;
+}
+
+.ticker-item {
+  background: white;
+  padding: 12px;
+  margin-bottom: 10px;
+  border-radius: 6px;
+  box-shadow: 0 2px 4px var(--cookie-shadow);
+  animation: slideIn 0.3s ease-out;
+}
+
+.ticker-item.vote {
+  border-left: 4px solid var(--cookie-sprinkles);
+}
+
+.ticker-item.wildcard {
+  border-left: 4px solid var(--cookie-frosting);
+}
+
+/* Timeline Section */
+.timeline-section {
+  height: 100%;
+  overflow: hidden;
+}
+
+.timeline-section h2 {
+  color: var(--cookie-chocolate);
+  margin-top: 0;
+  border-bottom: 2px solid var(--cookie-frosting);
+  padding-bottom: 10px;
+}
+
+#timeline {
+  height: calc(100% - 60px);
+  overflow-y: auto;
+  padding-right: 10px;
+}
+
+.timeline-card {
+  background: white;
+  padding: 15px;
+  margin-bottom: 15px;
+  border-radius: 8px;
+  box-shadow: 0 2px 4px var(--cookie-shadow);
+}
+
+.timeline-card .timestamp {
+  color: var(--cookie-sprinkles);
+  font-size: 0.9em;
+  margin-bottom: 10px;
+}
+
+.timeline-card p {
+  margin: 8px 0;
+  line-height: 1.4;
+}
+
+.timeline-card strong {
+  color: var(--cookie-chocolate);
+}
+
+/* Scrollbar Styling */
+::-webkit-scrollbar {
+  width: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: var(--cookie-sugar);
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--cookie-frosting);
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: var(--cookie-sprinkles);
+}
+
+/* Animations */
+@keyframes slideIn {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* Game Control Button */
+.game-control {
+  background-color: #4CAF50;
+  color: white;
+  transition: background-color 0.3s ease;
+}
+
+.game-control.stopped {
+  background-color: #f44336;
+} 

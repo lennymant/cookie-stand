@@ -1,0 +1,54 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Cookie Stand Strategy Game</title>
+    <link rel="stylesheet" href="styles.css">
+    <style>
+        .header h1 {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+        }
+        .user-name {
+            font-size: 1rem;
+            opacity: 0.8;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🍪 Cookie Stand <span id="userName" class="user-name">Click to set name</span></h1>
+        </div>
+
+        <div class="content">
+            <div class="scenario-box">
+                <h2>Current Scenario</h2>
+                <p id="scenario">Loading scenario...</p>
+            </div>
+
+            <div class="options-box">
+                <h2>Vote on Next Move</h2>
+                <div id="options" class="options-list">
+                    <div class="option">Loading options...</div>
+                </div>
+            </div>
+
+            <div class="wildcard-box">
+                <h2>Wildcard Move</h2>
+                <div class="wildcard-input">
+                    <input type="text" id="wildcardInput" placeholder="Type your wildcard move...">
+                    <button onclick="submitWildcard()">Submit</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div id="refresh-timer">Loading...</div>
+
+    <script src="main.js"></script>
+</body>
+</html>

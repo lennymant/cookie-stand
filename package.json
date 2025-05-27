@@ -1,0 +1,27 @@
+{
+  "name": "cookies",
+  "version": "1.0.0",
+  "description": "Welcome to the Cookie Stand Strategic Reasoning Playground.",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "start": "node src/app.js",
+    "dev": "node src/app.js"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/lennymant/cookie-stand.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/lennymant/cookie-stand/issues"
+  },
+  "homepage": "https://github.com/lennymant/cookie-stand#readme",
+  "dependencies": {
+    "dotenv": "^16.5.0",
+    "express": "^5.1.0",
+    "openai": "^4.103.0"
+  }
+}
