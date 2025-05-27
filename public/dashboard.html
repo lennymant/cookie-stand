@@ -389,16 +389,14 @@
 
         // Add QR code generation
         function generateQRCode() {
-            // Get base URL without dashboard.html
-            const baseUrl = window.location.origin;
             const qrContainer = document.getElementById('qrcode');
             
             // Clear any existing QR code
             qrContainer.innerHTML = '';
             
-            // Generate new QR code
+            // Generate new QR code with hardcoded URL
             new QRCode(qrContainer, {
-                text: baseUrl,
+                text: 'https://chat.door4.com/cookie-stand/',
                 width: 100,
                 height: 100,
                 colorDark: '#4CAF50',
