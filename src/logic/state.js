@@ -217,10 +217,12 @@ function vote(userId, optionId) {
   const user = users.find(u => u.id === userId);
 
   if (selected && !selected.votes.includes(userId)) {
-    selected.votes.push(userId);
-
-    // Get user's display name from users array
+    // Store both userId and displayName with the vote
     const displayName = user?.name || "Anonymous";
+    selected.votes.push({
+      userId: userId,
+      displayName: displayName
+    });
 
     // Log vote to console
     logWithTimestamp(`Vote received from ${displayName} for option: "${selected.text}"`);
@@ -258,7 +260,7 @@ function getVotes() {
   return options.map(opt => ({
     id: opt.id,
     text: opt.text,
-    votes: opt.votes.length,
+    votes: opt.votes.map(v => typeof v === 'string' ? { userId: v, displayName: 'Anonymous' } : v),
     alignment: opt.alignment
   }));
 }
@@ -456,6 +458,27 @@ async function registerUser(id, name) {
     if (existingUser) {
       existingUser.name = name;
       logWithTimestamp(`Updated user name: ${name} (${id})`);
+      
+      // Update name in existing votes
+      options.forEach(opt => {
+        opt.votes = opt.votes.map(vote => {
+          if (typeof vote === 'string' && vote === id) {
+            return { userId: id, displayName: name };
+          }
+          if (typeof vote === 'object' && vote.userId === id) {
+            return { ...vote, displayName: name };
+          }
+          return vote;
+        });
+      });
+
+      // Update name in ticker log
+      tickerLog = tickerLog.map(entry => {
+        if (entry.user === existingUser.name) {
+          return { ...entry, user: name };
+        }
+        return entry;
+      });
     } else {
       users.push({ id, name });
       logWithTimestamp(`New user registered: ${name} (${id})`);

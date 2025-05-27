@@ -11,8 +11,11 @@ let config = {
   }
 };
 
+// Set base path
+const basePath = '/cookies';
+
 // Fetch config on startup
-fetch('/api/config')
+fetch(`${basePath}/api/config`)
   .then(res => res.json())
   .then(data => {
     config = data;
@@ -42,7 +45,7 @@ if (!userId) {
   updateUserName(displayName);
 
   // Register new user
-  fetch("/api/register", {
+  fetch(`${basePath}/api/register`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ userId, name: displayName })
@@ -64,7 +67,7 @@ document.getElementById("userName")?.addEventListener("click", async function() 
   if (newName && newName.trim() && !newName.startsWith("user_") && newName !== currentName) {
     try {
       console.log('Updating username:', { userId, newName: newName.trim() });
-      const res = await fetch("/api/update-name", {
+      const res = await fetch(`${basePath}/api/update-name`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ 
@@ -91,7 +94,7 @@ document.getElementById("userName")?.addEventListener("click", async function() 
 async function fetchState() {
   try {
     console.log('Fetching state...');
-    const res = await fetch(`/api/current?userId=${encodeURIComponent(userId)}`);
+    const res = await fetch(`${basePath}/api/current?userId=${encodeURIComponent(userId)}`);
     if (!res.ok) {
       throw new Error(`HTTP error! status: ${res.status}`);
     }
@@ -210,7 +213,7 @@ async function fetchState() {
 
 async function vote(optionId) {
   try {
-    const res = await fetch("/api/vote", {
+    const res = await fetch(`${basePath}/api/vote`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ userId, optionId })
@@ -246,7 +249,7 @@ async function submitWildcard() {
   if (!text) return;
 
   try {
-    const res = await fetch("/api/wildcard", {
+    const res = await fetch(`${basePath}/api/wildcard`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ userId, text })
@@ -292,7 +295,7 @@ function clearVoteState() {
 
 async function forceNextRound() {
   try {
-    const res = await fetch("/api/force-next-round", {
+    const res = await fetch(`${basePath}/api/force-next-round`, {
       method: "POST",
       headers: { "Content-Type": "application/json" }
     });
