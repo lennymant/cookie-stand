@@ -1,6 +1,11 @@
 // src/config.js
 
 module.exports = {
+  // Server settings
+  server: {
+    port: 5000
+  },
+
   // Timing intervals (in milliseconds)
   intervals: {
     strategyDuration: 60000,    // How long each strategy lasts (60 seconds)
