@@ -262,392 +262,238 @@
             margin-top: 10px;
             text-align: center;
         }
+
+        .control-panel {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 20px;
+        }
+
+        .control-panel button {
+            padding: 8px 16px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-weight: bold;
+            transition: all 0.3s ease;
+            background-color: var(--color-primary);
+            color: white;
+        }
+
+        .control-panel button:hover {
+            opacity: 0.9;
+            transform: translateY(-1px);
+        }
+
+        .history-item {
+            background: var(--color-light);
+            padding: 15px;
+            margin: 10px 0;
+            border-radius: 4px;
+            border-left: 4px solid var(--color-primary);
+        }
+
+        .history-item h3 {
+            margin-top: 0;
+            color: var(--color-primary);
+        }
+
+        .history-item p {
+            margin: 5px 0;
+            color: var(--color-text);
+        }
+
+        .log-item {
+            background: var(--color-light);
+            padding: 10px;
+            margin: 5px 0;
+            border-radius: 4px;
+            border-left: 4px solid var(--color-secondary);
+        }
+
+        .log-item .timestamp {
+            color: var(--color-secondary);
+            font-size: 0.9em;
+            margin-right: 10px;
+        }
+
+        .log-item .message {
+            color: var(--color-text);
+        }
+
+        #currentState p {
+            margin: 10px 0;
+            padding: 8px;
+            background: var(--color-light);
+            border-radius: 4px;
+            border-left: 4px solid var(--color-primary);
+        }
     </style>
 </head>
 <body>
     <div class="dashboard-container">
+        <h1>Cookie Stand Dashboard</h1>
+        
         <div class="dashboard-grid">
             <div class="column-1">
-                <div class="company-profile">
-                    <h2>Company Profile</h2>
-                    <p id="company-profile">Loading...</p>
+                <div class="game-controls">
+                    <h2>Game Control</h2>
+                    <div class="control-panel">
+                        <button id="toggleGame">Start Game</button>
+                        <button id="forceNextRound">Force Next Round</button>
+                    </div>
                 </div>
 
                 <div class="current-strategy">
-                    <h2>Current Strategy</h2>
-                    <div id="strategy">Loading...</div>
-                </div>
-
-                <div class="game-controls">
-                    <div class="game-controls-row">
-                        <button id="gameControl" onclick="toggleGame()">Start Game</button>
-                        <button id="forceRound" onclick="forceNextRound()" class="force-round-button">Force New Round</button>
-                        <span id="gameStatus" class="status stopped">Stopped</span>
-                    </div>
-                    <div id="nextRoundTimer">Game is stopped</div>
-                    <div id="roundNumber" class="round-number">Month: 0</div>
+                    <h2>Current State</h2>
+                    <div id="currentState">Loading...</div>
                 </div>
             </div>
 
             <div class="column-2">
-                <div class="voting-analysis">
-                    <h2>Voting Analysis</h2>
-                    <div id="voting-analysis">Loading...</div>
-                </div>
-
-                <div class="live-activity">
-                    <h2>Live Activity</h2>
-                    <div id="ticker">Loading...</div>
+                <div class="round-history">
+                    <h2>History</h2>
+                    <div id="history">Loading...</div>
                 </div>
             </div>
 
             <div class="column-3">
-                <div class="round-history">
-                    <h2>Round History</h2>
-                    <div id="history">Loading...</div>
+                <div class="live-activity">
+                    <h2>Ticker Log</h2>
+                    <div id="tickerLog">Loading...</div>
                 </div>
             </div>
         </div>
     </div>
 
     <script>
-        let gameRunning = false;
-        let countdownInterval = null;
+        // Get the current hostname and protocol
+        const protocol = window.location.protocol;
+        const hostname = window.location.hostname;
+        const port = window.location.port ? `:${window.location.port}` : '';
 
-        async function forceNextRound() {
-            try {
-                const res = await fetch("/api/force-next-round", {
-                    method: "POST",
-                    headers: { "Content-Type": "application/json" }
-                });
+        // Set base URL based on environment
+        let baseUrl = `${protocol}//${hostname}${port}`;
+        let basePath = '/cookies'; // Default base path for local development
 
-                if (res.ok) {
-                    await Promise.all([fetchTicker(), fetchHistory()]);
-                } else {
-                    console.error('Failed to force next round');
+        // Get config values from server
+        fetch(`${baseUrl}${basePath}/api/config`)
+            .then(res => res.json())
+            .then(data => {
+                if (data.server && data.server.basePath) {
+                    basePath = data.server.basePath;
                 }
-            } catch (error) {
-                console.error('Error forcing next round:', error);
-            }
-        }
+                // Start intervals with config values
+                setInterval(fetchState, data.intervals.stateRefresh || 10000);
+                setInterval(fetchHistory, data.intervals.stateRefresh || 10000);
+                setInterval(fetchTickerLog, data.intervals.stateRefresh || 10000);
+            })
+            .catch(error => {
+                console.error('Error fetching config:', error);
+                // Use default values if config fetch fails
+                setInterval(fetchState, 10000);
+                setInterval(fetchHistory, 10000);
+                setInterval(fetchTickerLog, 10000);
+            });
 
-        async function fetchTicker() {
+        async function fetchState() {
             try {
-                const res = await fetch("/api/ticker");
-                const items = await res.json();
-
-                const container = document.getElementById("ticker");
-                if (!items || items.length === 0) {
-                    container.innerHTML = '<div class="ticker-item">No recent activity</div>';
-                    return;
-                }
-
-                container.innerHTML = items.map(entry => {
-                    if (entry.type === "vote") {
-                        return `<div class="ticker-item vote">🗳️ <strong>${entry.user}</strong> voted for "<em>${entry.option}</em>"</div>`;
-                    } else if (entry.type === "wildcard") {
-                        return `<div class="ticker-item wildcard">🎲 <strong>${entry.user}</strong> played wildcard: "<em>${entry.option}</em>"</div>`;
-                    }
-                    return ''; // Handle any other types
-                }).filter(Boolean).join("");
+                const res = await fetch(`${baseUrl}${basePath}/api/current?userId=admin`);
+                if (!res.ok) throw new Error(`HTTP error! status: ${res.status}`);
+                const data = await res.json();
+                
+                document.getElementById("currentState").innerHTML = `
+                    <p>Current Month: ${data.currentMonth || 'N/A'}</p>
+                    <p>Scenario: ${data.scenario || 'N/A'}</p>
+                    <p>Strategy: ${data.strategy || 'N/A'}</p>
+                    <p>Strategy Time Remaining: ${data.strategyTimeRemaining || 0}s</p>
+                    <p>Company Profile: ${data.companyProfile || 'N/A'}</p>
+                    <p>Options Available: ${data.options ? data.options.length : 0}</p>
+                `;
             } catch (error) {
-                console.error('Error fetching ticker:', error);
-                document.getElementById("ticker").innerHTML = '<div class="ticker-item">Error loading activity</div>';
+                console.error('Error fetching state:', error);
+                document.getElementById("currentState").innerHTML = `<p>Error loading state: ${error.message}</p>`;
             }
         }
 
         async function fetchHistory() {
             try {
-                const res = await fetch("/api/history");
+                const res = await fetch(`${baseUrl}${basePath}/api/history`);
+                if (!res.ok) throw new Error(`HTTP error! status: ${res.status}`);
                 const data = await res.json();
-                console.log('History data received:', data); // Debug log
-
-                // Update current state
-                const strategyEl = document.getElementById("strategy");
-                const profileEl = document.getElementById("company-profile");
                 
-                if (strategyEl && data.strategy) {
-                    // Convert markdown to HTML
-                    const html = data.strategy
-                        .replace(/^# (.+)$/gm, '<h3>$1</h3>')  // Convert # Headline to h3
-                        .replace(/^## (.+)$/gm, '<h4>$1</h4>')  // Convert ## Subheadline to h4
-                        .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')  // Convert **bold** to <strong>
-                        .replace(/^- (.+)$/gm, '<li>$1</li>')  // Convert - bullet points to li
-                        .replace(/(<li>.*<\/li>)/gs, '<ul>$1</ul>');  // Wrap li elements in ul
-                    strategyEl.innerHTML = html;
-                    console.log('Strategy updated:', data.strategy); // Debug log
-                } else {
-                    console.error('Strategy element not found or no strategy data');
-                }
-
-                if (profileEl) {
-                    if (!data.companyProfile) {
-                        profileEl.textContent = "Loading company profile...";
-                        console.log('No company profile in data');
-                    } else {
-                        profileEl.textContent = data.companyProfile;
-                        console.log('Profile updated:', data.companyProfile); // Debug log
-                    }
-                } else {
-                    console.error('Profile element not found');
-                }
-
-                // Update timeline
-                const container = document.getElementById("timeline");
-                if (!container) {
-                    console.error('Timeline container not found');
-                    return;
-                }
-                container.innerHTML = "";
-
-                if (!data.history || !Array.isArray(data.history)) {
-                    console.error('Invalid history data:', data.history);
-                    return;
-                }
-
-                data.history.slice().reverse().forEach(entry => {
-                    const div = document.createElement("div");
-                    div.className = "timeline-card";
-                    div.innerHTML = `
-                        <div class="timestamp">${new Date(entry.timestamp).toLocaleString()}</div>
-                        <p><strong>Scenario:</strong> ${entry.scenario || 'N/A'}</p>
-                        <p><strong>Chosen Tactic:</strong> ${entry.selected?.text || "N/A"}</p>
-                        <p><strong>Updated Strategy:</strong> ${entry.strategy || 'N/A'}</p>
-                        <p><strong>Commentary:</strong> ${entry.commentary || "No update yet."}</p>
-                    `;
-                    container.appendChild(div);
-                });
+                const historyHtml = data.map(round => `
+                    <div class="history-item">
+                        <h3>Month ${round.month}</h3>
+                        <p>Scenario: ${round.scenario || 'N/A'}</p>
+                        <p>Strategy: ${round.strategy || 'N/A'}</p>
+                        <p>Winning Option: ${round.winningOption || 'N/A'}</p>
+                        <p>Votes: ${round.votes ? round.votes.length : 0}</p>
+                        <p>Wildcards: ${round.wildcards ? round.wildcards.length : 0}</p>
+                    </div>
+                `).join('');
+                
+                document.getElementById("history").innerHTML = historyHtml || '<p>No history available</p>';
             } catch (error) {
                 console.error('Error fetching history:', error);
-                // Show error state in UI
-                document.getElementById("strategy").textContent = "Error loading strategy";
-                document.getElementById("company-profile").textContent = "Error loading profile";
+                document.getElementById("history").innerHTML = `<p>Error loading history: ${error.message}</p>`;
             }
         }
 
-        function updateTimer() {
-            const timerElement = document.getElementById('nextRoundTimer');
-            if (!gameRunning) {
-                timerElement.textContent = 'Game is stopped';
-                return;
-            }
-
-            fetch('/api/current')
-                .then(res => res.json())
-                .then(data => {
-                    const timeRemaining = data.strategyTimeRemaining;
-                    if (timeRemaining > 0) {
-                        const minutes = Math.floor(timeRemaining / 60);
-                        const seconds = timeRemaining % 60;
-                        timerElement.textContent = `Next round in: ${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
-                    } else {
-                        timerElement.textContent = 'Strategy update pending...';
-                    }
-                })
-                .catch(error => {
-                    console.error('Error updating timer:', error);
-                    timerElement.textContent = 'Error updating timer';
-                });
-        }
-
-        async function toggleGame() {
-            const button = document.getElementById('gameControl');
-            const statusElement = document.getElementById('gameStatus');
-            
+        async function fetchTickerLog() {
             try {
-                const response = await fetch('/api/toggle-game', {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json'
-                    },
-                    body: JSON.stringify({ running: !gameRunning })
-                });
+                const res = await fetch(`${baseUrl}${basePath}/api/ticker-log`);
+                if (!res.ok) throw new Error(`HTTP error! status: ${res.status}`);
+                const data = await res.json();
                 
-                if (response.ok) {
-                    const data = await response.json();
-                    gameRunning = data.running;
-                    button.textContent = gameRunning ? 'Stop Game' : 'Start Game';
-                    button.classList.toggle('stopped', !gameRunning);
-                    statusElement.textContent = gameRunning ? 'Running' : 'Stopped';
-                    statusElement.classList.toggle('running', gameRunning);
-                    
-                    if (gameRunning) {
-                        // Start the countdown timer
-                        updateTimer();
-                        countdownInterval = setInterval(updateTimer, 1000);
-                    } else {
-                        // Stop the countdown timer
-                        if (countdownInterval) {
-                            clearInterval(countdownInterval);
-                            countdownInterval = null;
-                        }
-                        document.getElementById('nextRoundTimer').textContent = 'Game is stopped';
-                    }
-                } else {
-                    console.error('Failed to toggle game state');
-                }
+                const logHtml = data.map(log => `
+                    <div class="log-item">
+                        <span class="timestamp">${log.timestamp}</span>
+                        <span class="message">${log.message}</span>
+                    </div>
+                `).join('');
+                
+                document.getElementById("tickerLog").innerHTML = logHtml || '<p>No logs available</p>';
+            } catch (error) {
+                console.error('Error fetching ticker log:', error);
+                document.getElementById("tickerLog").innerHTML = `<p>Error loading ticker log: ${error.message}</p>`;
+            }
+        }
+
+        document.getElementById("toggleGame").addEventListener("click", async function() {
+            try {
+                const res = await fetch(`${baseUrl}${basePath}/api/toggle-game`, {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" }
+                });
+                if (!res.ok) throw new Error(`HTTP error! status: ${res.status}`);
+                const data = await res.json();
+                this.textContent = data.isActive ? 'Stop Game' : 'Start Game';
             } catch (error) {
                 console.error('Error toggling game:', error);
+                alert('Error toggling game: ' + error.message);
             }
-        }
+        });
 
-        // Check initial game state on page load
-        fetch('/api/game-state')
-            .then(res => res.json())
-            .then(data => {
-                gameRunning = data.running;
-                const button = document.getElementById('gameControl');
-                const statusElement = document.getElementById('gameStatus');
-                
-                button.textContent = gameRunning ? 'Stop Game' : 'Start Game';
-                button.classList.toggle('stopped', !gameRunning);
-                statusElement.textContent = gameRunning ? 'Running' : 'Stopped';
-                statusElement.classList.toggle('running', gameRunning);
-                
-                if (gameRunning) {
-                    updateTimer();
-                    countdownInterval = setInterval(updateTimer, 1000);
-                }
-            })
-            .catch(error => {
-                console.error('Error fetching game state:', error);
-            });
-
-        // Update game state periodically
-        setInterval(() => {
-            fetch('/api/game-state')
-                .then(res => res.json())
-                .then(data => {
-                    if (data.running !== gameRunning) {
-                        gameRunning = data.running;
-                        const button = document.getElementById('gameControl');
-                        const statusElement = document.getElementById('gameStatus');
-                        
-                        button.textContent = gameRunning ? 'Stop Game' : 'Start Game';
-                        button.classList.toggle('stopped', !gameRunning);
-                        statusElement.textContent = gameRunning ? 'Running' : 'Stopped';
-                        statusElement.classList.toggle('running', gameRunning);
-                        
-                        if (gameRunning) {
-                            updateTimer();
-                            countdownInterval = setInterval(updateTimer, 1000);
-                        } else {
-                            if (countdownInterval) {
-                                clearInterval(countdownInterval);
-                                countdownInterval = null;
-                            }
-                            document.getElementById('nextRoundTimer').textContent = 'Game is stopped';
-                        }
-                    }
-                })
-                .catch(error => {
-                    console.error('Error checking game state:', error);
+        document.getElementById("forceNextRound").addEventListener("click", async function() {
+            try {
+                const res = await fetch(`${baseUrl}${basePath}/api/force-next-round`, {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" }
                 });
-        }, 5000); // Check every 5 seconds
+                if (!res.ok) throw new Error(`HTTP error! status: ${res.status}`);
+                const data = await res.json();
+                alert('Next round forced successfully');
+            } catch (error) {
+                console.error('Error forcing next round:', error);
+                alert('Error forcing next round: ' + error.message);
+            }
+        });
 
         // Initial fetch
-        fetchTicker();
+        fetchState();
         fetchHistory();
-        updateTimer();
-
-        // Set up intervals for automatic updates
-        setInterval(fetchTicker, 5000); // Update ticker every 5 seconds
-        setInterval(fetchHistory, 10000); // Update history every 10 seconds
-        setInterval(updateTimer, 1000); // Update timer every second
-
-        async function fetchState() {
-            try {
-                console.log('Fetching state...');
-                const userId = localStorage.getItem("userId");
-                const res = await fetch(`/api/current?userId=${encodeURIComponent(userId)}`);
-                const data = await res.json();
-                console.log('Received state data:', data);
-                
-                // Update company profile
-                const profileElement = document.getElementById('company-profile');
-                if (profileElement) {
-                    profileElement.textContent = data.companyProfile || 'No profile available';
-                }
-
-                // Update strategy with markdown conversion
-                const strategyElement = document.getElementById('strategy');
-                if (strategyElement) {
-                    if (data.strategy) {
-                        // Convert markdown to HTML
-                        const html = data.strategy
-                            .replace(/^# (.+)$/gm, '<h3>$1</h3>')  // Convert # Headline to h3
-                            .replace(/^## (.+)$/gm, '<h4>$1</h4>')  // Convert ## Subheadline to h4
-                            .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')  // Convert **bold** to <strong>
-                            .replace(/^- (.+)$/gm, '<li>$1</li>')  // Convert - bullet points to li
-                            .replace(/(<li>.*<\/li>)/gs, '<ul>$1</ul>');  // Wrap li elements in ul
-                        strategyElement.innerHTML = html;
-                    } else {
-                        strategyElement.innerHTML = 'No strategy available';
-                    }
-                }
-
-                // Update voting analysis
-                const analysisElement = document.getElementById('voting-analysis');
-                console.log('Voting analysis element:', analysisElement);
-                console.log('Voting analysis data:', data.votingAnalysis);
-                
-                if (analysisElement) {
-                    if (data.votingAnalysis) {
-                        console.log('Updating voting analysis with:', data.votingAnalysis);
-                        let analysisHtml = '';
-                        
-                        if (data.votingAnalysis.userPatterns && data.votingAnalysis.userPatterns.length > 0) {
-                            analysisHtml += '<h3>User Patterns</h3>';
-                            analysisHtml += '<ul>';
-                            data.votingAnalysis.userPatterns.forEach(pattern => {
-                                analysisHtml += `<li><strong>${pattern.user}</strong>: ${pattern.pattern} (${pattern.frequency})</li>`;
-                            });
-                            analysisHtml += '</ul>';
-                        }
-                        
-                        if (data.votingAnalysis.generalPatterns && data.votingAnalysis.generalPatterns.length > 0) {
-                            analysisHtml += '<h3>General Patterns</h3>';
-                            analysisHtml += '<ul>';
-                            data.votingAnalysis.generalPatterns.forEach(pattern => {
-                                analysisHtml += `<li>${pattern}</li>`;
-                            });
-                            analysisHtml += '</ul>';
-                        }
-                        
-                        analysisElement.innerHTML = analysisHtml || 'No voting analysis available';
-                        console.log('Updated voting analysis HTML:', analysisElement.innerHTML);
-                    } else {
-                        console.log('No voting analysis in state data');
-                        analysisElement.innerHTML = 'No voting analysis available';
-                    }
-                } else {
-                    console.error('Voting analysis element not found');
-                }
-
-                // Update game state
-                gameRunning = data.gameRunning;
-                const button = document.getElementById('gameControl');
-                const statusElement = document.getElementById('gameStatus');
-                
-                if (button && statusElement) {
-                    button.textContent = gameRunning ? 'Stop Game' : 'Start Game';
-                    button.classList.toggle('stopped', !gameRunning);
-                    statusElement.textContent = gameRunning ? 'Running' : 'Stopped';
-                    statusElement.classList.toggle('running', gameRunning);
-                }
-
-                // Update round number
-                const roundNumberElement = document.getElementById('roundNumber');
-                if (roundNumberElement) {
-                    roundNumberElement.textContent = `Month: ${data.currentMonth || 0}`;
-                }
-            } catch (error) {
-                console.error('Error fetching state:', error);
-            }
-        }
-
-        // Set up intervals for automatic updates
-        setInterval(fetchState, 5000); // Update state every 5 seconds
+        fetchTickerLog();
     </script>
 </body>
 </html>
