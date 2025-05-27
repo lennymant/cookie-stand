@@ -394,4 +394,31 @@ main {
     font-size: 0.8rem;
     margin-top: 0.25rem;
   }
+
+  /* Mobile styles for wildcard box */
+  .wildcard-box {
+    width: 100%;
+    margin: 1rem 0;
+    padding: 1rem;
+    box-sizing: border-box;
+  }
+
+  .wildcard-input {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+  }
+
+  .wildcard-input input {
+    width: 100%;
+    padding: 0.75rem;
+    font-size: 1rem;
+    box-sizing: border-box;
+  }
+
+  .wildcard-input button {
+    width: 100%;
+    padding: 0.75rem;
+    font-size: 1rem;
+  }
 } 

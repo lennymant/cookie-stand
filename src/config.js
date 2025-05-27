@@ -15,8 +15,29 @@ module.exports = {
 
   // Initial company state
   company: {
-    initialProfile: "A small, family-owned cookie stand that prides itself on traditional recipes and personal service",
-    initialStrategy: "Bake delicious cookies that everybody loves"
+    initialProfile: JSON.stringify({
+      updatedProfile: "A small, family-owned cookie stand that prides itself on traditional recipes and personal service"
+    }),
+    initialStrategy: JSON.stringify({
+      ProductServiceStrategy: {
+        summary: "Bake delicious cookies that everybody loves",
+        bullets: [
+          "Focus on traditional recipes"
+        ]
+      },
+      OperationsFinanceStrategy: {
+        summary: "Efficient operations with sustainable practices",
+        bullets: [
+            "Keep overhead costs low"
+        ]
+      },
+      MarketingStrategy: {
+        summary: "Build a loyal customer base through word-of-mouth",
+        bullets: [
+          "Create a welcoming atmosphere"
+        ]
+      }
+    })
   },
 
   // UI settings

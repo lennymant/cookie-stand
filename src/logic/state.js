@@ -292,29 +292,70 @@ function getState(userId) {
   // Try to parse strategy as JSON
   if (typeof strategy === 'string') {
     try {
-      formattedStrategy = JSON.parse(strategy);
+      // Clean the string before parsing
+      const cleanedStrategy = strategy
+        .replace(/[\u0000-\u001F\u007F-\u009F]/g, '') // Remove control characters
+        .replace(/\uFEFF/g, '') // Remove BOM
+        .replace(/\u00A0/g, ' ') // Replace non-breaking spaces
+        .replace(/\\n/g, ' ') // Replace escaped newlines
+        .replace(/\\"/g, '"') // Replace escaped quotes
+        .replace(/\\t/g, ' ') // Replace tabs
+        .trim();
+
+      // Try to parse as JSON
+      formattedStrategy = JSON.parse(cleanedStrategy);
+      logWithTimestamp('Successfully parsed strategy as JSON');
     } catch (e) {
+      logWithTimestamp('Strategy not valid JSON, formatting as markdown');
       // If not JSON, format as markdown
       formattedStrategy = strategy
         .replace(/\*\*(.*?)\*\*/g, '<h3>$1</h3>')
         .replace(/- (.*?)(?=\n|$)/g, '<p>$1</p>')
-        .replace(/\n/g, '');
+        .replace(/\n/g, ' ')
+        .replace(/\\n/g, ' ')
+        .replace(/\\"/g, '"')
+        .replace(/\\t/g, ' ')
+        .trim();
     }
   }
 
   // Try to parse company profile as JSON
   if (typeof companyProfile === 'string') {
     try {
-      formattedProfile = JSON.parse(companyProfile);
+      // Clean the string before parsing
+      const cleanedProfile = companyProfile
+        .replace(/[\u0000-\u001F\u007F-\u009F]/g, '') // Remove control characters
+        .replace(/\uFEFF/g, '') // Remove BOM
+        .replace(/\u00A0/g, ' ') // Replace non-breaking spaces
+        .replace(/\\n/g, ' ') // Replace escaped newlines
+        .replace(/\\"/g, '"') // Replace escaped quotes
+        .replace(/\\t/g, ' ') // Replace tabs
+        .trim();
+
+      // Try to parse as JSON
+      const parsedProfile = JSON.parse(cleanedProfile);
+      // If it's already an object with updatedProfile, use that directly
+      formattedProfile = parsedProfile.updatedProfile || parsedProfile;
+      logWithTimestamp('Successfully parsed company profile as JSON');
     } catch (e) {
+      logWithTimestamp('Company profile not valid JSON, cleaning text');
       // If not JSON, clean up the text
       formattedProfile = companyProfile
         .replace(/New Company Profile:/g, '')
         .replace(/----------------------------------------/g, '')
         .replace(/================================================================================/g, '')
         .replace(/Current Company Profile:/g, '')
+        .replace(/[\u0000-\u001F\u007F-\u009F]/g, '') // Remove control characters
+        .replace(/\uFEFF/g, '') // Remove BOM
+        .replace(/\u00A0/g, ' ') // Replace non-breaking spaces
+        .replace(/\\n/g, ' ') // Replace escaped newlines
+        .replace(/\\"/g, '"') // Replace escaped quotes
+        .replace(/\\t/g, ' ') // Replace tabs
         .trim();
     }
+  } else if (typeof companyProfile === 'object' && companyProfile !== null) {
+    // If it's already an object, use it directly
+    formattedProfile = companyProfile.updatedProfile || companyProfile;
   }
   
   const state = {

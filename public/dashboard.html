@@ -564,75 +564,154 @@
                 let strategyText = data.strategy || 'N/A';
                 let companyProfile = data.companyProfile || 'N/A';
 
-                // Parse company profile - handle JSON format
+                // Handle strategy formatting
+                if (typeof strategyText === 'string') {
+                    try {
+                        // Clean the string before parsing
+                        const cleanedStrategy = strategyText
+                            .replace(/[\u0000-\u001F\u007F-\u009F]/g, '') // Remove control characters
+                            .replace(/\uFEFF/g, '') // Remove BOM
+                            .replace(/\u00A0/g, ' ') // Replace non-breaking spaces
+                            .replace(/\\n/g, ' ') // Replace escaped newlines
+                            .replace(/\\"/g, '"') // Replace escaped quotes
+                            .replace(/\\t/g, ' ') // Replace tabs
+                            .trim();
+
+                        // Try to parse as JSON
+                        const strategyObj = JSON.parse(cleanedStrategy);
+                        let formattedStrategy = '<div class="strategy-sections">';
+                        
+                        // Handle the new strategy object structure
+                        if (strategyObj.ProductServiceStrategy) {
+                            formattedStrategy += `
+                                <div class="strategy-section">
+                                    <h3>Product/Service Strategy</h3>
+                                    <p>${strategyObj.ProductServiceStrategy.summary}</p>
+                                    ${strategyObj.ProductServiceStrategy.bullets ? `
+                                        <ul>
+                                            ${strategyObj.ProductServiceStrategy.bullets.map(bullet => `<li>${bullet}</li>`).join('')}
+                                        </ul>
+                                    ` : ''}
+                                </div>`;
+                        }
+
+                        if (strategyObj.OperationsFinanceStrategy) {
+                            formattedStrategy += `
+                                <div class="strategy-section">
+                                    <h3>Operations & Finance Strategy</h3>
+                                    <p>${strategyObj.OperationsFinanceStrategy.summary}</p>
+                                    ${strategyObj.OperationsFinanceStrategy.bullets ? `
+                                        <ul>
+                                            ${strategyObj.OperationsFinanceStrategy.bullets.map(bullet => `<li>${bullet}</li>`).join('')}
+                                        </ul>
+                                    ` : ''}
+                                </div>`;
+                        }
+
+                        if (strategyObj.MarketingStrategy) {
+                            formattedStrategy += `
+                                <div class="strategy-section">
+                                    <h3>Marketing Strategy</h3>
+                                    <p>${strategyObj.MarketingStrategy.summary}</p>
+                                    ${strategyObj.MarketingStrategy.bullets ? `
+                                        <ul>
+                                            ${strategyObj.MarketingStrategy.bullets.map(bullet => `<li>${bullet}</li>`).join('')}
+                                        </ul>
+                                    ` : ''}
+                                </div>`;
+                        }
+
+                        formattedStrategy += '</div>';
+                        document.getElementById('currentState').innerHTML = formattedStrategy;
+                    } catch (error) {
+                        console.error('Error parsing strategy:', error);
+                        document.getElementById('currentState').innerHTML = `<div class="strategy-section"><p>${strategyText}</p></div>`;
+                    }
+                } else if (typeof strategyText === 'object') {
+                    // If strategy is already an object
+                    let formattedStrategy = '<div class="strategy-sections">';
+                    
+                    if (strategyText.ProductServiceStrategy) {
+                        formattedStrategy += `
+                            <div class="strategy-section">
+                                <h3>Product/Service Strategy</h3>
+                                <p>${strategyText.ProductServiceStrategy.summary}</p>
+                                ${strategyText.ProductServiceStrategy.bullets ? `
+                                    <ul>
+                                        ${strategyText.ProductServiceStrategy.bullets.map(bullet => `<li>${bullet}</li>`).join('')}
+                                    </ul>
+                                ` : ''}
+                            </div>`;
+                    }
+
+                    if (strategyText.OperationsFinanceStrategy) {
+                        formattedStrategy += `
+                            <div class="strategy-section">
+                                <h3>Operations & Finance Strategy</h3>
+                                <p>${strategyText.OperationsFinanceStrategy.summary}</p>
+                                ${strategyText.OperationsFinanceStrategy.bullets ? `
+                                    <ul>
+                                        ${strategyText.OperationsFinanceStrategy.bullets.map(bullet => `<li>${bullet}</li>`).join('')}
+                                    </ul>
+                                ` : ''}
+                            </div>`;
+                    }
+
+                    if (strategyText.MarketingStrategy) {
+                        formattedStrategy += `
+                            <div class="strategy-section">
+                                <h3>Marketing Strategy</h3>
+                                <p>${strategyText.MarketingStrategy.summary}</p>
+                                ${strategyText.MarketingStrategy.bullets ? `
+                                    <ul>
+                                        ${strategyText.MarketingStrategy.bullets.map(bullet => `<li>${bullet}</li>`).join('')}
+                                    </ul>
+                                ` : ''}
+                            </div>`;
+                    }
+
+                    formattedStrategy += '</div>';
+                    document.getElementById('currentState').innerHTML = formattedStrategy;
+                } else {
+                    document.getElementById('currentState').innerHTML = `<div class="strategy-section"><p>${strategyText}</p></div>`;
+                }
+
+                // Handle company profile formatting
                 if (typeof companyProfile === 'string') {
                     try {
+                        // Clean the string before parsing
+                        const cleanedProfile = companyProfile
+                            .replace(/[\u0000-\u001F\u007F-\u009F]/g, '') // Remove control characters
+                            .replace(/\uFEFF/g, '') // Remove BOM
+                            .replace(/\u00A0/g, ' ') // Replace non-breaking spaces
+                            .replace(/\\n/g, ' ') // Replace escaped newlines
+                            .replace(/\\"/g, '"') // Replace escaped quotes
+                            .replace(/\\t/g, ' ') // Replace tabs
+                            .trim();
+
                         // Try to parse as JSON
-                        const profileObj = JSON.parse(companyProfile);
-                        companyProfile = profileObj.updatedProfile || companyProfile;
+                        const parsedProfile = JSON.parse(cleanedProfile);
+                        // If it's already an object with updatedProfile, use that directly
+                        companyProfile = parsedProfile.updatedProfile || parsedProfile;
                     } catch (e) {
-                        // If not JSON, clean up the text
+                        console.log('Company profile not valid JSON, cleaning text');
+                        // Clean up the text
                         companyProfile = companyProfile
                             .replace(/New Company Profile:/g, '')
                             .replace(/----------------------------------------/g, '')
                             .replace(/================================================================================/g, '')
                             .replace(/Current Company Profile:/g, '')
+                            .replace(/[\u0000-\u001F\u007F-\u009F]/g, '') // Remove control characters
+                            .replace(/\uFEFF/g, '') // Remove BOM
+                            .replace(/\u00A0/g, ' ') // Replace non-breaking spaces
+                            .replace(/\\n/g, ' ') // Replace escaped newlines
+                            .replace(/\\"/g, '"') // Replace escaped quotes
+                            .replace(/\\t/g, ' ') // Replace tabs
                             .trim();
                     }
-                }
-
-                // Handle strategy object
-                if (typeof strategyText === 'object' && strategyText !== null) {
-                    console.log('Processing strategy as object');
-                    let formattedStrategy = '';
-                    
-                    // Handle the new strategy object structure
-                    if (strategyText.ProductServiceStrategy) {
-                        formattedStrategy += `<h3>Product/Service Strategy</h3>`;
-                        formattedStrategy += `<p>${strategyText.ProductServiceStrategy.summary}</p>`;
-                        if (strategyText.ProductServiceStrategy.bullets && strategyText.ProductServiceStrategy.bullets.length > 0) {
-                            formattedStrategy += '<ul>';
-                            strategyText.ProductServiceStrategy.bullets.forEach(bullet => {
-                                formattedStrategy += `<li>${bullet}</li>`;
-                            });
-                            formattedStrategy += '</ul>';
-                        }
-                    }
-
-                    if (strategyText.OperationsFinanceStrategy) {
-                        formattedStrategy += `<h3>Operations & Finance Strategy</h3>`;
-                        formattedStrategy += `<p>${strategyText.OperationsFinanceStrategy.summary}</p>`;
-                        if (strategyText.OperationsFinanceStrategy.bullets && strategyText.OperationsFinanceStrategy.bullets.length > 0) {
-                            formattedStrategy += '<ul>';
-                            strategyText.OperationsFinanceStrategy.bullets.forEach(bullet => {
-                                formattedStrategy += `<li>${bullet}</li>`;
-                            });
-                            formattedStrategy += '</ul>';
-                        }
-                    }
-
-                    if (strategyText.MarketingStrategy) {
-                        formattedStrategy += `<h3>Marketing Strategy</h3>`;
-                        formattedStrategy += `<p>${strategyText.MarketingStrategy.summary}</p>`;
-                        if (strategyText.MarketingStrategy.bullets && strategyText.MarketingStrategy.bullets.length > 0) {
-                            formattedStrategy += '<ul>';
-                            strategyText.MarketingStrategy.bullets.forEach(bullet => {
-                                formattedStrategy += `<li>${bullet}</li>`;
-                            });
-                            formattedStrategy += '</ul>';
-                        }
-                    }
-                    
-                    strategyText = formattedStrategy;
-                    console.log('Formatted strategy from object:', strategyText);
-                } else if (typeof strategyText === 'string') {
-                    console.log('Processing strategy as string');
-                    // Handle markdown format
-                    strategyText = strategyText
-                        .replace(/\*\*(.*?)\*\*/g, '<h3>$1</h3>')
-                        .replace(/- (.*?)(?=\n|$)/g, '<p>$1</p>')
-                        .replace(/\n/g, '');
-                    console.log('Formatted strategy from string:', strategyText);
+                } else if (typeof companyProfile === 'object' && companyProfile !== null) {
+                    // If it's already an object, use it directly
+                    companyProfile = companyProfile.updatedProfile || companyProfile;
                 }
                 
                 document.getElementById("currentState").innerHTML = `
