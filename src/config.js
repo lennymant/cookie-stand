@@ -3,14 +3,26 @@
 module.exports = {
   // Server settings
   server: {
-    port: 5000
+    port: 5000,
+    basePath: '/cookie-stand'
   },
 
   // Timing intervals (in milliseconds)
   intervals: {
-    strategyDuration: 60000,    // How long each strategy lasts (60 seconds)
-    stateRefresh: 10000,        // How often to refresh the state (10 seconds)
-    countdownUpdate: 1000       // How often to update the countdown (1 second)
+    // Core game timing
+    strategyDuration: 300000,    // How long each strategy/round lasts (5 minutes)
+    roundTransitionDelay: 2000, // Delay between rounds (1 second)
+    schedulerWarmup: 3000,      // Initial delay before starting first round (3 seconds)
+    roundDuration: 60000,       // 1 minute
+    votingAnalysisInterval: 10000, // 10 seconds for voting analysis updates
+
+    // UI update intervals
+    stateRefresh: 5000,         // How often to refresh the game state (5 seconds)
+    countdownUpdate: 1000,      // How often to update the countdown display (1 second)
+    
+    // Voting and round management
+    voteTimeout: 15000,         // How long users have to vote (25 seconds)
+    roundEndDelay: 2000         // Delay after round ends before starting next (2 seconds)
   },
 
   // Initial company state

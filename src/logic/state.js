@@ -23,6 +23,7 @@ let isInitialized = false;
 let currentMonth = 1; // Start at month 1
 let votedUsers = new Set(); // Track users who have voted in the current round
 let roundInProgress = false; // Track if a round is in progress
+let votingAnalysisTimer = null;
 
 const USERS_FILE = path.join(__dirname, '../../data/users.json');
 
@@ -250,131 +251,69 @@ function getVotes() {
 }
 
 function getState(userId) {
-  if (!isInitialized) {
-    logWithTimestamp('State not initialized, returning default values');
-    return {
-      strategy: strategy || "Initializing...",
-      companyProfile: companyProfile || "Initializing...",
-      scenario: currentScenario || "Initializing...",
-      currentScenario: currentScenario || "Initializing...",
-      currentMonth: currentMonth || 1,
-      options: [],
-      users: [],
-      roundHistory: [],
-      strategyTimeRemaining: 60,
-      userName: null,
-      votingAnalysis: null,
-      hasVoted: false,
-      roundInProgress: false
-    };
-  }
-  
   const user = userId ? users.find(u => u.id === userId) : null;
   
-  // Log state for debugging
-  logWithTimestamp('Current state:', {
-    strategy,
-    companyProfile,
-    currentScenario,
-    currentMonth,
-    roundInProgress,
-    hasVoted: votedUsers.has(userId),
-    optionsCount: options.length,
-    usersCount: users.length,
-    roundHistoryCount: roundHistory.length,
-    strategyTimeRemaining: getStrategyTimeRemaining()
-  });
-
-  // Format strategy and company profile
-  let formattedStrategy = strategy;
-  let formattedProfile = companyProfile;
-
-  // Try to parse strategy as JSON
+  // Parse strategy if it's a string
+  let parsedStrategy = strategy;
   if (typeof strategy === 'string') {
     try {
-      // Clean the string before parsing
-      const cleanedStrategy = strategy
-        .replace(/[\u0000-\u001F\u007F-\u009F]/g, '') // Remove control characters
-        .replace(/\uFEFF/g, '') // Remove BOM
-        .replace(/\u00A0/g, ' ') // Replace non-breaking spaces
-        .replace(/\\n/g, ' ') // Replace escaped newlines
-        .replace(/\\"/g, '"') // Replace escaped quotes
-        .replace(/\\t/g, ' ') // Replace tabs
-        .trim();
-
-      // Try to parse as JSON
-      formattedStrategy = JSON.parse(cleanedStrategy);
-      logWithTimestamp('Successfully parsed strategy as JSON');
+      // First try to parse as is
+      parsedStrategy = JSON.parse(strategy);
     } catch (e) {
-      logWithTimestamp('Strategy not valid JSON, formatting as markdown');
-      // If not JSON, format as markdown
-      formattedStrategy = strategy
-        .replace(/\*\*(.*?)\*\*/g, '<h3>$1</h3>')
-        .replace(/- (.*?)(?=\n|$)/g, '<p>$1</p>')
-        .replace(/\n/g, ' ')
-        .replace(/\\n/g, ' ')
-        .replace(/\\"/g, '"')
-        .replace(/\\t/g, ' ')
-        .trim();
+      console.error('Error parsing strategy:', e);
+      try {
+        // If that fails, try to sanitize the string first
+        const sanitizedStrategy = strategy
+          .replace(/[\x00-\x1F\x7F-\x9F]/g, '') // Remove control characters
+          .replace(/^\uFEFF/, '') // Remove BOM
+          .replace(/\u00A0/g, ' ') // Replace non-breaking spaces
+          .replace(/,(\s*[}\]])/g, '$1') // Remove trailing commas
+          .trim();
+        
+        parsedStrategy = JSON.parse(sanitizedStrategy);
+      } catch (e2) {
+        console.error('Error parsing sanitized strategy:', e2);
+        // If all parsing attempts fail, use the original string
+        parsedStrategy = strategy;
+      }
     }
-  }
-
-  // Try to parse company profile as JSON
-  if (typeof companyProfile === 'string') {
-    try {
-      // Clean the string before parsing
-      const cleanedProfile = companyProfile
-        .replace(/[\u0000-\u001F\u007F-\u009F]/g, '') // Remove control characters
-        .replace(/\uFEFF/g, '') // Remove BOM
-        .replace(/\u00A0/g, ' ') // Replace non-breaking spaces
-        .replace(/\\n/g, ' ') // Replace escaped newlines
-        .replace(/\\"/g, '"') // Replace escaped quotes
-        .replace(/\\t/g, ' ') // Replace tabs
-        .trim();
-
-      // Try to parse as JSON
-      const parsedProfile = JSON.parse(cleanedProfile);
-      // If it's already an object with updatedProfile, use that directly
-      formattedProfile = parsedProfile.updatedProfile || parsedProfile;
-      logWithTimestamp('Successfully parsed company profile as JSON');
-    } catch (e) {
-      logWithTimestamp('Company profile not valid JSON, cleaning text');
-      // If not JSON, clean up the text
-      formattedProfile = companyProfile
-        .replace(/New Company Profile:/g, '')
-        .replace(/----------------------------------------/g, '')
-        .replace(/================================================================================/g, '')
-        .replace(/Current Company Profile:/g, '')
-        .replace(/[\u0000-\u001F\u007F-\u009F]/g, '') // Remove control characters
-        .replace(/\uFEFF/g, '') // Remove BOM
-        .replace(/\u00A0/g, ' ') // Replace non-breaking spaces
-        .replace(/\\n/g, ' ') // Replace escaped newlines
-        .replace(/\\"/g, '"') // Replace escaped quotes
-        .replace(/\\t/g, ' ') // Replace tabs
-        .trim();
-    }
-  } else if (typeof companyProfile === 'object' && companyProfile !== null) {
-    // If it's already an object, use it directly
-    formattedProfile = companyProfile.updatedProfile || companyProfile;
   }
   
-  const state = {
-    strategy: formattedStrategy,
-    companyProfile: formattedProfile,
-    scenario: currentScenario || "Initializing...",
-    currentScenario: currentScenario || "Initializing...",
-    currentMonth,
-    options: roundInProgress && !votedUsers.has(userId) ? options : [], // Only return options if round is in progress and user hasn't voted
+  return {
+    strategy: parsedStrategy,
+    companyProfile: companyProfile,
     users,
     roundHistory,
     strategyTimeRemaining: getStrategyTimeRemaining(),
     userName: user ? user.name : null,
     votingAnalysis,
     hasVoted: votedUsers.has(userId),
-    roundInProgress
+    roundInProgress,
+    currentMonth,
+    currentScenario,
+    options
   };
-  
-  return state;
+}
+
+async function updateVotingAnalysis() {
+  try {
+    // Get recent votes and wildcards
+    const recentVotes = tickerLog
+      .filter(entry => entry.type === 'vote')
+      .map(entry => ({ user: entry.user, option: entry.option }));
+    
+    const recentWildcards = tickerLog
+      .filter(entry => entry.type === 'wildcard')
+      .map(entry => ({ user: entry.user, option: entry.option }));
+
+    // Generate new analysis
+    const analysis = await ai.analyzeVotingPatterns(recentVotes, recentWildcards);
+    votingAnalysis = analysis;
+    
+    logWithTimestamp('Voting analysis updated');
+  } catch (error) {
+    logWithTimestamp(`Error updating voting analysis: ${error.message}`);
+  }
 }
 
 async function updateStrategy(newStrategy, commentary, selectedOption) {
@@ -389,32 +328,21 @@ async function updateStrategy(newStrategy, commentary, selectedOption) {
   // Clear voted users set for new round
   votedUsers.clear();
 
-  // Get recent votes and wildcards
-  const recentVotes = tickerLog
-    .filter(entry => entry.type === 'vote')
-    .map(entry => ({ user: entry.user, option: entry.option }));
-  
-  const recentWildcards = tickerLog
-    .filter(entry => entry.type === 'wildcard')
-    .map(entry => ({ user: entry.user, option: entry.option }));
-
   try {
     const timestamp = new Date().toLocaleTimeString();
     console.log('\n' + '='.repeat(80));
     console.log(`[${timestamp}] PROCESSING NEW ROUND`);
     console.log('='.repeat(80));
     
-    // Only randomly select a vote if enabled in config
-    if (config.game.enableRandomVotes && recentVotes.length === 0 && recentWildcards.length === 0 && options.length > 0) {
-      const randomIndex = Math.floor(Math.random() * options.length);
-      const randomOption = options[randomIndex];
-      recentVotes.push({
-        user: 'system',
-        option: randomOption.text
-      });
-      logWithTimestamp(`No votes or wildcards - randomly selected: "${randomOption.text}"`);
-    }
+    // Get recent votes and wildcards for history
+    const recentVotes = tickerLog
+      .filter(entry => entry.type === 'vote')
+      .map(entry => ({ user: entry.user, option: entry.option }));
     
+    const recentWildcards = tickerLog
+      .filter(entry => entry.type === 'wildcard')
+      .map(entry => ({ user: entry.user, option: entry.option }));
+
     // Log the inputs
     if (recentVotes.length > 0) {
       console.log('\nRecent Votes:');
@@ -428,27 +356,8 @@ async function updateStrategy(newStrategy, commentary, selectedOption) {
       recentWildcards.forEach(w => console.log(`- ${w.user}: "${w.option}"`));
     }
 
-    console.log('\nCurrent Company Profile:');
-    console.log('-'.repeat(40));
-    console.log(companyProfile);
-    console.log('-'.repeat(40) + '\n');
-
-    // Get voting analysis
-    console.log('Generating voting analysis with:', {
-      votes: recentVotes,
-      wildcards: recentWildcards
-    });
-    
-    // Generate voting analysis
-    const analysis = await ai.analyzeVotingPatterns(recentVotes, recentWildcards);
-    console.log('Generated voting analysis:', analysis);
-    
-    // Store the analysis in the state
-    votingAnalysis = analysis;
-    console.log('-'.repeat(40));
-
     const result = await ai.processRound({
-      currentStrategy: strategy, // Use the updated strategy
+      currentStrategy: strategy,
       currentScenario,
       currentProfile: companyProfile,
       votes: recentVotes,
@@ -456,39 +365,16 @@ async function updateStrategy(newStrategy, commentary, selectedOption) {
       timeExpired: getStrategyTimeRemaining() === 0
     });
 
-    // Validate the result
+    // Validate and update state
     if (!result) {
       throw new Error('No result received from processRound');
     }
 
-    if (!result.newStrategy) {
-      console.warn('No new strategy in result, using current strategy');
-      result.newStrategy = strategy;
-    }
-
-    if (!result.newProfile) {
-      console.warn('No new profile in result, using current profile');
-      result.newProfile = companyProfile;
-    }
-
-    if (!result.newScenario) {
-      console.warn('No new scenario in result, using current scenario');
-      result.newScenario = currentScenario;
-    }
-
     // Update state with new values
-    strategy = result.newStrategy; // Update strategy again with the new value
-    companyProfile = result.newProfile;
-    currentScenario = result.newScenario;
-    
-    // Clear options array - they will be set in the next round
+    strategy = result.newStrategy || strategy;
+    companyProfile = result.newProfile || companyProfile;
+    currentScenario = result.newScenario || currentScenario;
     options = [];
-
-    console.log('New Company Profile:');
-    console.log('-'.repeat(40));
-    console.log(companyProfile);
-    console.log('-'.repeat(40));
-    console.log('='.repeat(80) + '\n');
 
     // Record in history
     roundHistory.push({
@@ -497,31 +383,26 @@ async function updateStrategy(newStrategy, commentary, selectedOption) {
       scenario: currentScenario,
       selected: selectedOption,
       commentary,
-      strategy: strategy, // Use the current strategy
+      strategy: strategy,
       companyProfile,
       votes: recentVotes,
       wildcards: recentWildcards,
-      votingAnalysis: analysis
+      votingAnalysis: votingAnalysis // Use current voting analysis
     });
 
-    // Trim history if it gets too long
+    // Trim history if needed
     if (roundHistory.length > config.ui.maxHistoryEntries) {
       roundHistory = roundHistory.slice(-config.ui.maxHistoryEntries);
     }
 
-    // Reset the timer AFTER all updates are complete
+    // Reset the timer
     strategyStartTime = Date.now();
     logWithTimestamp('Timer reset after strategy update');
     
-    // Log final state
-    console.log("Final Strategy:", strategy);
   } catch (error) {
     logWithTimestamp(`Failed to process round update: ${error.message}`);
     logWithTimestamp('Stack trace:', error.stack);
-    
-    // Keep the current state if update fails
     logWithTimestamp('Keeping current state after update failure');
-    logWithTimestamp('Current state:', getState());
   }
 }
 
@@ -673,6 +554,12 @@ function startScheduler() {
   schedulerRunning = true;
   strategyStartTime = Date.now();
   
+  // Start voting analysis timer using config interval
+  if (votingAnalysisTimer) {
+    clearInterval(votingAnalysisTimer);
+  }
+  votingAnalysisTimer = setInterval(updateVotingAnalysis, config.intervals.votingAnalysisInterval);
+  
   // Initialize the game if not already initialized
   if (!isInitialized) {
     initialize().then(() => {
@@ -692,6 +579,10 @@ function stopScheduler() {
     clearTimeout(schedulerTimeout);
     schedulerTimeout = null;
   }
+  if (votingAnalysisTimer) {
+    clearInterval(votingAnalysisTimer);
+    votingAnalysisTimer = null;
+  }
   roundInProgress = false;
   strategyStartTime = Date.now(); // Reset timer when stopping
 }
@@ -701,6 +592,12 @@ function isSchedulerRunning() {
 }
 
 function endRound() {
+  // Only increment month if we haven't already ended this round
+  if (!roundInProgress) {
+    logWithTimestamp('Round already ended, skipping month increment');
+    return;
+  }
+
   logWithTimestamp('Ending round. Previous state:', {
     roundInProgress,
     optionsCount: options.length,
@@ -738,5 +635,6 @@ module.exports = {
   stopScheduler,
   isSchedulerRunning,
   startRound,
-  endRound
+  endRound,
+  updateVotingAnalysis
 };

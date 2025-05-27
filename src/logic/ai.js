@@ -103,7 +103,7 @@ async function processRound({
     console.log('\n' + '='.repeat(80));
     console.log('PROMPT SENT TO GPT:');
     console.log('='.repeat(80));
-    // console.log(prompt);
+    console.log(prompt);
     console.log('='.repeat(80) + '\n');
 
     const res = await openai.chat.completions.create({
@@ -129,14 +129,24 @@ async function processRound({
         .replace(/^\uFEFF/, '')
         // Remove any non-breaking spaces
         .replace(/\u00A0/g, ' ')
+        // Remove any trailing commas
+        .replace(/,(\s*[}\]])/g, '$1')
         .trim();
 
-      //console.log('Sanitized content:', sanitizedContent);
+      console.log('Sanitized content:', sanitizedContent);
 
-      const result = JSON.parse(sanitizedContent);
+      let result;
+      try {
+        result = JSON.parse(sanitizedContent);
+      } catch (parseError) {
+        console.error('JSON Parse Error:', parseError);
+        console.error('Failed content:', sanitizedContent);
+        throw new Error(`Failed to parse GPT response: ${parseError.message}`);
+      }
 
       // Log the parsed result
-      console.log('\nParsed result:', JSON.stringify(result, null, 2));
+      //console.log('\nParsed result:', JSON.stringify(result, null, 2));
+      console.log('result received');
 
       // Validate the result has all required fields
       if (!result.newStrategy) {
@@ -214,7 +224,8 @@ User Patterns:
 General Patterns:
 - [pattern description]
 
-IMPORTANT: Format your response exactly as shown above, with "User Patterns:" and "General Patterns:" sections.`;
+IMPORTANT: Format your response exactly as shown above, with "User Patterns:" and "General Patterns:" sections.
+if there isn't enough data - simply return "Insufficient data for vote analysis.`;
 
   try {
     const response = await openai.chat.completions.create({
