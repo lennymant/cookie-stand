@@ -14,7 +14,7 @@ async function generateScenario() {
 
 async function generateOptions(scenario) {
   const res = await openai.chat.completions.create({
-    model: "gpt-4",
+    model: "gpt-4o",
     messages: [{ role: "user", content: prompts.generateOptions(scenario) }]
   });
 

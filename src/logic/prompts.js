@@ -1,94 +1,164 @@
 // src/logic/prompts.js
 
 module.exports = {
-    generateScenario: `Generate a short real-world business challenge (1 sentence) for a company. Return just the challenge, nothing else.  The challenge should be basic - written at high school level to allow rapid reading.`,
-  
-    generateOptions: (scenario) => `
-  The  business faces this challenge: "${scenario}"
-  
-  Suggest 3 possible tactical responses — each must be:
-  - 4-8 words
-  - Clear and distinct
-  - Realistic and business-focused
-  - Simply written, at high school level
-  - option 1 should be 100% aligned to the current strategy.  Option 2 - 40-75% aligned, and Option 3 is contrarian, off the wall - and between 0-20% 
-  
-  Format:
-  1. ...
-  2. ...
-  3. ...
-  `,
-  
-    scoreAlignment: (strategy, optionText) => `
-    Company strategy: "${strategy}"
-  Option: "${optionText}"
-  
-  Give an alignment score from 0 to 100, and explain briefly why it fits or doesn't.
-  `,
-  
-    updateStrategy: (currentStrategy, decision) => `
-  Current strategy: "${currentStrategy}"
-  Recent team decision: "${decision}"
-  
-  Update the strategy to reflect this new decision. Format the strategy in markdown with:
-  - A clear, positive headline (under 10 words)
-  - 2-3 bullet points for key strategic elements
-  - Keep language simple and business-focused
-  
-  Also add a 1–2 sentence explanation of the strategic shift.
-  `,
+  generateScenario: `Generate a short real-world business challenge for a company.
 
-  generateCompanyProfile: (strategy, existingProfile) => 
-    `Given the following business strategy: "${strategy}", and the existing company profile: "${existingProfile}", 
-  write a brief updated company profile (2-3 sentences) that reflects the evolution of this strategy 
-  while maintaining continuity with the existing profile. 
-   The profile should describe the company's identity, values, and approach in a way that aligns with the strategy.`,
+Requirements:
+- Write only ONE sentence.
+- Keep the language simple and suitable for a high school reading level.
+- Do NOT include explanations or markdown.
+- Return ONLY the challenge string as plain text.`,
 
-  processRound: ({ currentStrategy, currentProfile, currentScenario, votes, wildcards, timeExpired }) => 
-    `You are managing a business. Here is the current state:
+  generateOptions: (scenario) => `
+The business faces this challenge: "${scenario}"
 
-Current Strategy: "${currentStrategy}"
-Current Company_Profile: "${currentProfile}"
-Current Scenario: "${currentScenario}"
+Suggest three distinct tactical responses.
 
-//// Recent Activity to influence strategy:
+Each response must:
+- Be 4 to 8 words long.
+- Be realistic and business-focused.
+- Use clear, simple language (high school level).
+- Be strategically aligned as follows:
+  1. Option 1 — 100% aligned with current strategy.
+  2. Option 2 — 40–75% aligned.
+  3. Option 3 — 0–20% aligned, contrarian or off-the-wall.
+
+Return the result in this exact format:
+{
+  "options": [
+    "Option 1 text",
+    "Option 2 text",
+    "Option 3 text"
+  ]
+}`,
+
+  scoreAlignment: (strategy, optionText) => `
+Evaluate alignment of a business option against a given strategy.
+
+Inputs:
+- Company strategy: "${strategy}"
+- Option: "${optionText}"
+
+Return a JSON object with:
+- alignment (score from 0 to 100)
+- explanation (a brief reason why it fits or doesn't)
+
+Output format:
+{
+  "alignment": 85,
+  "explanation": "Brief explanation of the alignment"
+}`,
+
+  updateStrategy: (currentStrategy, decision) => `
+Update the company strategy based on a new decision.
+
+Inputs:
+- Current strategy: "${currentStrategy}"
+- Team decision: "${decision}"
+
+Output structure must be a JSON object with this format:
+{
+  "updatedStrategy": {
+    "headline": "Short strategy headline (under 10 words)",
+    "bullets": [
+      "Bullet point 1",
+      "Bullet point 2",
+      "Optional bullet point 3"
+    ],
+    "explanation": "1–2 sentence explanation of the change"
+  }
+}
+
+Language:
+- Use clear and simple business English.
+- Do NOT return markdown or extra formatting.`,
+
+  generateCompanyProfile: (strategy, existingProfile) => `
+Update a company profile based on strategy changes.
+
+Inputs:
+- Strategy: "${strategy}"
+- Existing profile: "${existingProfile}"
+
+Write a new 2–3 sentence profile that:
+- Reflects the updated strategy
+- Maintains continuity with the original identity and tone
+
+Return the profile as a single string in this format:
+{
+  "updatedProfile": "Revised company profile here"
+}`,
+
+  processRound: ({ currentStrategy, currentProfile, currentScenario, votes, wildcards, timeExpired }) => `
+Simulate the next round of business decision-making.
+
+Current State:
+- Strategy: "${currentStrategy}"
+- Profile: "${currentProfile}"
+- Scenario: "${currentScenario}"
+
+//// Activity Log:
 START->
 ${votes.map(v => `- ${v.user} voted for: ${v.option}`).join('\n')}
 ${wildcards.map(w => `- ${w.user} suggested: ${w.option}`).join('\n')}
 ${timeExpired ? '- Strategy timer expired' : ''}
 END->
 
-Ensure the new strategy and profile maintain continuity with the existing ones while incorporating insights from votes and wildcards. The new scenario should be relevant to the updated strategy. Each option should be distinct and have a clear alignment score with the new strategy.
-Strategy: use simple, readable sentences, use bullet points if appropriate. keep language very simple.  Don't invent new content for the strategy - only allow the submitted content to be used.
-Break strategy into 3 components:  Product/service strategy, Operations & Finance strategy, Marketing strategy - one line summary for each, and 2-3 bullet points as reuqired. 
-Where a wildcard has been suggested, this MUST influence the revised strategy.
-If no suggestions/votes received (between START and END), then DO NOT change the strategy.
-IMPORTANT: Return ONLY the raw JSON object, without any markdown formatting or code blocks.
-Formatting:  when updating the strategy - use makdown formatting - and embolden those elements which have been updated.
+Instructions:
 
+1. If there are NO votes or wildcards, DO NOT change the strategy or profile. Copy them forward.
+2. If wildcards are present, their content must be integrated into the updated strategy.
+3. The new strategy must:
+   - Retain continuity with the current one.
+   - Be based only on submitted votes/wildcards — do not invent new elements.
+   - Be split into three sections:
+     - ProductServiceStrategy
+     - OperationsFinanceStrategy
+     - MarketingStrategy
+   - Each section should contain:
+     - A "summary" (1–2 simple sentences)
+     - A "bullets" array with 2–3 key points (if enough data)
 
-Based on this information, provide a complete update in the following JSON format:
+4. Generate a new challenge scenario aligned to the updated strategy. Keep it short and simple.
+5. Propose three new options and score their alignment to the updated strategy.
+
+Return a valid JSON object ONLY — no markdown, headers, or explanations.
+
+JSON format:
 {
-  "newStrategy": "A markdown-formatted strategy with a headline and 2-3 bullet points - edited as detailed above",
-  "newCompany_Profile": "A slightly revised 2-3 sentence company profile that maintains continuity with the existing profile while reflecting the new strategy.  Only make incremental changes.",
-  "newScenario": "A new business scenario or challenge to consider for this company.  Keep it simple.",
+  "newStrategy": {
+    "ProductServiceStrategy": {
+      "summary": "Brief summary of product/service strategy.",
+      "bullets": ["point 1", "point 2", "optional point 3"]
+    },
+    "OperationsFinanceStrategy": {
+      "summary": "Brief summary of operations and finance strategy.",
+      "bullets": ["point 1", "point 2", "optional point 3"]
+    },
+    "MarketingStrategy": {
+      "summary": "Brief summary of marketing strategy.",
+      "bullets": ["point 1", "point 2", "optional point 3"]
+    }
+  },
+  "newCompany_Profile": "Revised company profile (2–3 sentences). Incremental updates only.",
+  "newScenario": "New business challenge (1 sentence). Keep it simple.",
   "options": [
     {
-      "text": "First option for the new scenario",
-      "alignment": 85,
-      "explanation": "Brief explanation of alignment with strategy"
+      "text": "First option for new scenario",
+      "alignment": 90,
+      "explanation": "Brief reason for the score"
     },
     {
-      "text": "Second option for the new scenario",
+      "text": "Second option for new scenario",
       "alignment": 60,
-      "explanation": "Brief explanation of alignment with strategy"
+      "explanation": "Brief reason for the score"
     },
     {
-      "text": "Third option for the new scenario",
-      "alignment": 40,
-      "explanation": "Brief explanation of alignment with strategy"
+      "text": "Third option for new scenario",
+      "alignment": 20,
+      "explanation": "Brief reason for the score"
     }
   ]
-}
-`
+}`
+
 };

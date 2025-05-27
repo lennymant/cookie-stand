@@ -12,9 +12,8 @@ app.use('/api', routes);
 app.use('/cookie-stand/api', routes);
 
 const PORT = process.env.PORT || config.server.port;
-app.listen(PORT, () => {
-    console.log(`🍪 Cookie Stand running on http://localhost:${PORT}`);
-    // Start the game automatically
+app.listen(PORT, '0.0.0.0', () => {
+    console.log(`🍪 Cookie Stand running on http://192.168.137.1:${PORT}`);
     state.startScheduler();
     console.log('🎮 Game started automatically');
 });
