@@ -400,7 +400,7 @@ async function updateStrategy(newStrategy, commentary, selectedOption) {
       timestamp: new Date().toISOString(),
       month: currentMonth,
       scenario: currentScenario,
-      selected: selectedOption,
+      winningOption: selectedOption ? selectedOption.text : 'No votes',
       commentary,
       strategy: strategy,
       companyProfile,
