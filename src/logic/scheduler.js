@@ -7,6 +7,7 @@ const config = require('../config');
 let lastRoundTime = Date.now();
 let schedulerRunning = false;
 let roundInProgress = false;
+let roundTimeout = null;
 
 async function startRound() {
   if (!schedulerRunning) {
@@ -28,11 +29,15 @@ async function startRound() {
     const currentState = state.getState();
     
     // Start the round with current scenario and options
-    // The scenario will be updated during state.updateStrategy after votes
     await state.startRound(currentState.scenario, currentState.options);
     
+    // Clear any existing timeout
+    if (roundTimeout) {
+      clearTimeout(roundTimeout);
+    }
+    
     // Wait for strategy duration, then resolve
-    setTimeout(async () => {
+    roundTimeout = setTimeout(async () => {
       await resolveRound();
     }, config.intervals.strategyDuration);
   } catch (error) {
@@ -108,6 +113,10 @@ function beginScheduler() {
 
 function stopScheduler() {
   schedulerRunning = false;
+  if (roundTimeout) {
+    clearTimeout(roundTimeout);
+    roundTimeout = null;
+  }
   roundInProgress = false;
   state.endRound(); // End any active round
   console.log("🛑 Scheduler stopped");
@@ -115,5 +124,7 @@ function stopScheduler() {
 
 module.exports = {
   beginScheduler,
-  stopScheduler
+  stopScheduler,
+  startRound,
+  resolveRound
 };

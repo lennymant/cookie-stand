@@ -12,20 +12,7 @@
 </head>
 <body>
     <div class="container">
-        <div class="header">
-            <h1>🍪 Cookie Stand Dashboard <span class="user-name">Click to set name</span></h1>
-        </div>
-
-        <!-- Add modal for winning vote -->
-        <div id="winningVoteModal" class="modal">
-            <div class="modal-content">
-                <h2>Round Results</h2>
-                <div id="winningVoteContent">
-                    <p>Calculating results...</p>
-                </div>
-            </div>
-        </div>
-
+        
         <div class="content">
             <div class="dashboard-container">
                 <div class="dashboard-header">
@@ -43,14 +30,15 @@
                                 <p>Loading strategy...</p>
                             </div>
                         </div>
-                    </div>
-                    
-                    <div class="column-2">
-
                         <div class="qr-container">
                             <div id="qrcode"></div>
                             <p>Scan to join</p>
                         </div>
+                    </div>
+                    
+                    <div class="column-2">
+
+                        
                         <div class="voting-analysis">
                             <h2>Voting Analysis</h2>
                             <div id="votingAnalysisContent">
@@ -198,7 +186,25 @@
         </div>
     </div>
 
+    <!-- Add modal for winning vote -->
+    <div id="winningVoteModal" class="modal">
+        <div class="modal-content">
+            <h2>Round Results</h2>
+            <div id="winningVoteContent">
+                <p>Calculating results...</p>
+            </div>
+        </div>
+    </div>
+
     <script>
+        // Ensure modal is hidden by default
+        document.addEventListener('DOMContentLoaded', function() {
+            const modal = document.getElementById('winningVoteModal');
+            if (modal) {
+                modal.classList.remove('show');
+            }
+        });
+
         // Get the current hostname and protocol
         const protocol = window.location.protocol;
         const hostname = window.location.hostname;
@@ -375,6 +381,19 @@
                             currentOptions.textContent = 'No options available';
                             currentOptions.removeAttribute('data-options');
                         }
+                    }
+                }
+
+                // Update main Company Profile box in the right column
+                const companyProfileBox = document.querySelector('.company-profile p');
+                if (companyProfileBox) {
+                    try {
+                        const profileObj = typeof data.companyProfile === 'string' ? 
+                            JSON.parse(data.companyProfile) : data.companyProfile;
+                        companyProfileBox.textContent = profileObj.updatedProfile || data.companyProfile || 'No profile available';
+                    } catch (e) {
+                        console.error('Error parsing profile for box:', e);
+                        companyProfileBox.textContent = data.companyProfile || 'No profile available';
                     }
                 }
             } catch (error) {

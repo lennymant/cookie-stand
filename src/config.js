@@ -10,17 +10,17 @@ module.exports = {
   // Timing intervals (in milliseconds)
   intervals: {
     // Core game timing
-    strategyDuration: 45000,    // Duration of each round (90 seconds)
-    roundTransitionDelay: 2000, // Delay between rounds (2 seconds)
-    schedulerWarmup: 3000,      // Initial delay before starting first round (3 seconds)
-    votingAnalysisInterval: 40000, // 20 seconds for voting analysis updates
+    strategyDuration: 45000,    // Duration of each round (120 seconds)
+    roundTransitionDelay: 5000,  // Delay between rounds (5 seconds)
+    schedulerWarmup: 3000,       // Initial delay before starting first round (3 seconds)
+    votingAnalysisInterval: 40000, // How often to update voting analysis (40 seconds)
 
     // UI update intervals
-    stateRefresh: 2000,         // How often to refresh the game state (5 seconds)
+    stateRefresh: 2000,         // How often to refresh the game state (2 seconds)
     countdownUpdate: 1000,      // How often to update the countdown display (1 second)
     
     // Round management
-    roundEndDelay: 2000         // Delay after round ends before starting next (2 seconds)
+    roundEndDelay: 5000         // Delay after round ends before starting next (5 seconds)
   },
 
   // Initial company state

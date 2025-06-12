@@ -2,6 +2,7 @@ let userId = localStorage.getItem("userId");
 let lastVotedOption = localStorage.getItem("lastVotedOption");
 let currentStrategy = null;
 let currentCompanyProfile = null;
+let currentStrategySig = null;
 
 // Default config values (will be overridden by server config)
 let config = {
@@ -24,16 +25,22 @@ fetch(`${basePath}/api/config`)
     
     // Start intervals with server config values
     setInterval(updateCountdown, config.intervals.countdownUpdate);
-    setInterval(fetchState, config.intervals.stateRefresh);
+    // Single polling interval for state and options (every 4s or server-defined)
+    setInterval(fetchState, Math.max(4000, config.intervals.stateRefresh));
     setInterval(fetchVotingAnalysis, config.intervals.stateRefresh);
+    // Initial fetch
+    fetchState();
   })
   .catch(error => {
     console.error('Error fetching config:', error);
     // Use default values if config fetch fails
     console.log('Using default config values due to fetch error');
     setInterval(updateCountdown, 1000);
-    setInterval(fetchState, 5000);
     setInterval(fetchVotingAnalysis, 5000);
+    // Single polling interval when config fetch fails (every 5s)
+    setInterval(fetchState, 5000);
+    // Initial fetch
+    fetchState();
   });
 
 if (!userId) {
@@ -113,54 +120,180 @@ function debounce(func, wait) {
 // Debounce the state updates
 const debouncedFetchState = debounce(fetchState, 1000);
 
-// Update the interval to use debounced function
-setInterval(debouncedFetchState, config.intervals.stateRefresh);
+// State tracking
+let currentState = {
+  hasVoted: false,
+  options: null
+};
 
+// Track the last rendered option IDs to avoid unnecessary DOM updates
+let lastOptionIds = '';
+
+// Helper functions for state management
+function updateGameState(gameState) {
+  const gameStateElement = document.getElementById('game-state');
+  if (gameStateElement) {
+    const statusCode = (gameState || 'Unknown').split(' - ')[0] || '00';
+    gameStateElement.textContent = statusCode;
+  }
+}
+
+function updateWinningVoteModal(data) {
+  const modal = document.getElementById('winningVoteModal');
+  if (!modal) return;
+
+  if (data.roundEnded && !data.roundInProgress) {
+    const winningContent = document.getElementById('winningVoteContent');
+    if (winningContent) {
+      winningContent.innerHTML = `
+        <div class="winning-option">${data.winningOption || 'No winning option yet'}</div>
+        <div class="vote-stats">
+          ${data.voteStats ? `Votes: ${data.voteStats.total || 0}` : ''}
+        </div>
+      `;
+    }
+    modal.classList.add('show');
+  } else if (data.roundInProgress) {
+    modal.classList.remove('show');
+  }
+}
+
+function showVoteConfirmation(container) {
+  // Only update if not already showing confirmation
+  if (!container.querySelector('.vote-confirmation')) {
+    container.innerHTML = `
+      <div class="vote-confirmation">
+        <h2>YOU HAVE VOTED</h2>
+      </div>
+    `;
+  }
+}
+
+function showWaitingMessage(container, data) {
+  let statusMessage = 'Waiting for next round...';
+  
+  if (data.gameState) {
+    const stateCode = data.gameState.split(' - ')[0];
+    switch(stateCode) {
+      case '00': statusMessage = 'Game initializing...'; break;
+      case '01': statusMessage = 'Round in progress - voting is open'; break;
+      case '02': statusMessage = 'Processing votes and updating strategy...'; break;
+      default: statusMessage = `Current state: ${data.gameState}`;
+    }
+  }
+
+  if (data.currentMonth) {
+    statusMessage += ` (Month ${data.currentMonth})`;
+  }
+  if (data.currentScenario) {
+    statusMessage += ` - ${data.currentScenario}`;
+  }
+
+  container.innerHTML = `<p>${statusMessage}</p>`;
+}
+
+function getAlignmentColor(score) {
+  if (score >= 66) return 'var(--color-success)'; // green
+  if (score >= 33) return 'var(--color-warning)'; // amber
+  return 'var(--color-error)'; // red
+}
+
+function showVotingOptions(container, options) {
+  // Build a stable identifier string for option IDs regardless of order
+  const newIds = options.map(o => o.id).sort().join(',');
+  const currentOptionsPanel = container.querySelector('.options-panel');
+  const currentIds = currentOptionsPanel ? (currentOptionsPanel.dataset.optionIds || '') : '';
+
+  // Only rebuild the options panel if the option IDs have changed
+  if (newIds !== currentIds) {
+    container.innerHTML = `
+      <div class="options-panel" data-option-ids="${newIds}">
+        ${options.map(option => `
+          <div class="option">
+            <div class="option-text">${option.text}</div>
+            <div class="option-controls">
+              <button class="vote-button" onclick="vote('${option.id}')">Vote</button>
+              <div class="alignment-row">
+                <div class="alignment-bar">
+                  <div class="alignment-fill" style="width: ${(Math.max(0, Math.min(100, option.alignment)))}%; background-color: ${getAlignmentColor(option.alignment)}"></div>
+                </div>
+                <span class="alignment-text">Alignment: ${option.alignment}%</span>
+              </div>
+            </div>
+          </div>
+        `).join('')}
+      </div>
+    `;
+  }
+}
+
+function getVotedOptionText(data) {
+  if (data.votedOptionId && data.options && Array.isArray(data.options)) {
+    const votedOption = data.options.find(opt => opt.id === data.votedOptionId);
+    if (votedOption) {
+      return votedOption.text;
+    }
+  }
+  return "Your vote has been recorded";
+}
+
+function shouldUpdateUI(newData) {
+  // Check if vote state changed
+  if (newData.hasVoted !== currentState.hasVoted) {
+    return true;
+  }
+
+  // Check if options changed
+  if (!currentState.options && newData.options) {
+    return true;
+  }
+  if (currentState.options && !newData.options) {
+    return true;
+  }
+  if (currentState.options && newData.options) {
+    if (currentState.options.length !== newData.options.length) {
+      return true;
+    }
+    // Compare option IDs to detect changes
+    const currentIds = currentState.options.map(o => o.id).sort().join(',');
+    const newIds = newData.options.map(o => o.id).sort().join(',');
+    if (currentIds !== newIds) {
+      return true;
+    }
+  }
+
+  return false;
+}
+
+function updateUI(container, data) {
+  console.log('Updating UI with data:', data);
+  
+  if (data.hasVoted) {
+    showVoteConfirmation(container);
+  } else {
+    showVotingOptions(container, data.options);
+  }
+}
+
+// Main state update function
 async function fetchState() {
   try {
-    console.log('Fetching state...');
     const res = await fetch(`${basePath}/api/current?userId=${encodeURIComponent(userId)}`);
-    if (!res.ok) {
-      throw new Error(`HTTP error! status: ${res.status}`);
-    }
+    if (!res.ok) throw new Error(`HTTP error! status: ${res.status}`);
+    
     const data = await res.json();
-    console.log('Received state data:', data);
 
-    // Update game state in footer
-    const gameStateElement = document.getElementById('game-state');
-    if (gameStateElement) {
-      const gameState = data.gameState || 'Unknown';
-      // Extract the status code from the game state
-      const statusCode = gameState.split(' - ')[0] || '00';
-      gameStateElement.textContent = statusCode;
-    }
+    // Update header and modal – these are inexpensive
+    updateGameState(data.gameState);
+    updateWinningVoteModal(data);
 
-    // Check if we're in a round transition (round ended but new one not started)
-    const modal = document.getElementById('winningVoteModal');
-    if (modal) {
-      if (data.roundEnded && !data.roundInProgress) {
-        // Show winning vote modal
-        const winningContent = document.getElementById('winningVoteContent');
-        if (winningContent) {
-          winningContent.innerHTML = `
-            <div class="winning-option">${data.winningOption || 'No winning option yet'}</div>
-            <div class="vote-stats">
-              ${data.voteStats ? `Votes: ${data.voteStats.total || 0}` : ''}
-            </div>
-          `;
-        }
-        modal.classList.add('show');
-      } else if (data.roundInProgress) {
-        // Hide modal when new round starts
-        modal.classList.remove('show');
-      }
-    }
-
-    // Check if strategy has changed
-    if (currentStrategy && data.strategy !== currentStrategy) {
+    // Handle strategy change using a stable signature comparison
+    const newStrategySig = typeof data.strategy === 'string' ? data.strategy : JSON.stringify(data.strategy);
+    if (currentStrategySig && newStrategySig !== currentStrategySig) {
       clearVoteState();
+      lastOptionIds = '';
     }
-    currentStrategy = data.strategy;
+    currentStrategySig = newStrategySig;
 
     // Check if month has changed and add marker to ticker
     if (data.currentMonth && data.currentMonth !== localStorage.getItem('lastMonth')) {
@@ -239,90 +372,25 @@ async function fetchState() {
       }
     }
 
-    // Get the options container
-    const container = document.getElementById("options");
+    const container = document.getElementById('options');
     if (!container) return;
 
-    // Store current options for comparison
-    const currentOptions = container.getAttribute('data-options') || '';
-    const newOptions = data.options && Array.isArray(data.options) ? 
-      data.options.map(opt => opt.id).join('|') : '';
-
-    // Only update if options have changed
-    if (currentOptions !== newOptions) {
-      // If round is not in progress, show waiting message
-      if (!data.roundInProgress) {
-        container.innerHTML = '<p>Waiting for next round...</p>';
-        container.setAttribute('data-options', '');
-        return;
+    if (data.hasVoted) {
+      // Only insert confirmation the first time
+      showVoteConfirmation(container);
+    } else if (Array.isArray(data.options) && data.options.length > 0) {
+      const newIds = data.options.map(o => o.id).sort().join(',');
+      if (newIds !== lastOptionIds) {
+        // Only re-render if the option IDs really changed (i.e., a new round)
+        const previousScrollY = window.scrollY;
+        showVotingOptions(container, data.options);
+        lastOptionIds = newIds;
+        // Restore scroll position so the page doesn't jump to the top
+        window.scrollTo({ top: previousScrollY });
       }
-
-      // If user has voted in this round, show the vote confirmation
-      if (data.hasVoted && data.roundInProgress) {
-        // Try to get the vote text from the current options if available
-        let votedText = null;
-        if (data.votedOptionId && data.options && Array.isArray(data.options)) {
-          const votedOption = data.options.find(opt => opt.id === data.votedOptionId);
-          if (votedOption) {
-            votedText = votedOption.text;
-            console.log('Found vote text in current options:', votedText);
-          }
-        }
-        
-        // If not found in current options, use default message
-        if (!votedText) {
-          console.log('No vote text found, using default message');
-          votedText = "Your vote has been recorded";
-        }
-        
-        console.log('Final vote text to display:', votedText);
-        
-        container.innerHTML = `
-          <div class="vote-confirmation">
-            <h2>You voted to:</h2>
-            <div class="voted-option">${votedText}</div>
-          </div>
-        `;
-        container.setAttribute('data-options', newOptions);
-        return;
-      }
-
-      // Handle empty or invalid options
-      if (!data.options || !Array.isArray(data.options) || data.options.length === 0) {
-        console.log('No options available, showing waiting message');
-        container.innerHTML = '<p>Waiting for options...</p>';
-        container.setAttribute('data-options', '');
-        return;
-      }
-
-      // Display new options
-      console.log('Displaying new options:', data.options);
-      container.innerHTML = `
-        <div class="options-panel">
-          ${data.options.map(option => `
-            <div class="option">
-              <div class="option-text">${option.text}</div>
-              <div class="option-controls">
-                <button class="vote-button" onclick="vote('${option.id}')">Vote</button>
-                <div class="alignment-bar">
-                  <div class="alignment-fill" style="width: ${(option.alignment + 1) * 50}%"></div>
-                </div>
-                <div class="alignment-text">Alignment: ${option.alignment}</div>
-              </div>
-            </div>
-          `).join('')}
-        </div>
-      `;
-      container.setAttribute('data-options', newOptions);
     }
-  } catch (error) {
-    console.error('Error fetching state:', error);
-    // Show error state in options container
-    const container = document.getElementById("options");
-    if (container) {
-      container.innerHTML = '<p>Error loading options. Please refresh the page.</p>';
-      container.setAttribute('data-options', '');
-    }
+  } catch (err) {
+    console.error('Error fetching state:', err);
   }
 }
 
@@ -349,8 +417,10 @@ async function vote(optionId) {
         </div>
       `;
 
-      // Force a state refresh to ensure server has the vote
-      await fetchState();
+      // Wait a moment before fetching state to ensure vote is registered
+      setTimeout(async () => {
+        await fetchState();
+      }, 500);
     }
   } catch (error) {
     console.error('Error voting:', error);

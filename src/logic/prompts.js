@@ -1,7 +1,7 @@
 // src/logic/prompts.js
 
 module.exports = {
-  generateScenario: `Generate a short real-world business challenge for a company.
+  generateScenario: `Generate a short real-world business challenge for a company.  This should evolve from recent voting and strategy change.
 
 Requirements:
 - Write only ONE sentence.
@@ -91,7 +91,7 @@ Write a new 2–3 sentence profile that:
 - Reflects the updated strategy
 - Maintains continuity with the original identity and tone
 
-Return the profile as a single string in this format:
+Return the profile as a single string with line breaks in this format:
 {
   "updatedProfile": "Revised company profile here"
 }`,
@@ -118,6 +118,7 @@ Instructions:
 3. The new strategy must:
    - Retain continuity with the current one.
    - Be based only on submitted votes/wildcards — do not invent new elements.
+   - Reflect any popular and unanimous votes/wildcards.
    - Be split into three sections:
      - ProductServiceStrategy
      - OperationsFinanceStrategy
@@ -126,7 +127,7 @@ Instructions:
      - A "summary" (1–2 simple sentences)
      - A "bullets" array with 2–3 key points (if enough data)
 
-4. Generate a new challenge scenario aligned to the updated strategy. Keep it short and simple.
+4. Generate a new challenge scenario aligned to the updated strategy and recent votes/wildcards. Keep it short and simple.  You may change fundamentals of the business - the name, the core product - if required.
 5. Propose three new options and score their alignment to the updated strategy.
 
 Return a valid JSON object ONLY — no markdown, headers, or explanations.

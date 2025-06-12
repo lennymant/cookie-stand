@@ -208,19 +208,24 @@ function vote(userId, optionId) {
 
   // Remove any existing votes from this user
   options.forEach(opt => {
-    const index = opt.votes.indexOf(userId);
-    if (index !== -1) opt.votes.splice(index, 1);
+    opt.votes = opt.votes.filter(v => {
+      if (typeof v === 'object') {
+        return v.userId !== userId;
+      }
+      return v !== userId;
+    });
   });
 
   const selected = options.find(o => o.id === optionId);
   const user = users.find(u => u.id === userId);
 
-  if (selected && !selected.votes.includes(userId)) {
+  if (selected) {
     // Store both userId and displayName with the vote
     const displayName = user?.name || "Anonymous";
     selected.votes.push({
       userId: userId,
-      displayName: displayName
+      displayName: displayName,
+      timestamp: new Date().toISOString()
     });
 
     // Add user to voted users set
@@ -685,9 +690,8 @@ function endRound() {
   // Set round as not in progress first
   roundInProgress = false;
   
-  // Clear all round-specific data
-  options = []; // Clear options when round ends
-  votedUsers.clear(); // Clear voted users for next round
+  // Don't clear options or votes until the next round starts
+  // This ensures votes are preserved for the round resolution
   
   // Increment month counter here, after the round is fully processed
   currentMonth++;
