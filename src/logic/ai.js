@@ -4,33 +4,6 @@ const prompts = require('./prompts');
 
 const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
 
-async function generateScenario() {
-  console.log('\n[ai.js] generateScenario: Generating new scenario');
-  const res = await openai.chat.completions.create({
-    model: "gpt-4",
-    messages: [{ role: "user", content: prompts.generateScenario }]
-  });
-  return res.choices[0].message.content.trim();
-}
-
-// async function generateOptions(scenario) {
-//   const res = await openai.chat.completions.create({
-//     model: "gpt-4o",
-//     messages: [{ role: "user", content: prompts.generateOptions(scenario) }]
-//   });
-// 
-//   const lines = res.choices[0].message.content.split('\n').filter(l => l.trim());
-//   
-//   // Log the raw lines
-//   console.log('\n' + '='.repeat(80));
-//   console.log('RAW OPTIONS FROM GPT:');
-//   console.log('='.repeat(80));
-//   lines.forEach((line, i) => console.log(`${i + 1}. ${line}`));
-//   console.log('='.repeat(80) + '\n');
-// 
-//   return lines.map(line => ({ text: line.replace(/^\d+\.\s*/, '') }));
-// }
-
 async function scoreAlignment(strategy, optionText) {
   console.log('\n[ai.js] scoreAlignment: Scoring alignment for option:', optionText);
   const res = await openai.chat.completions.create({
@@ -56,6 +29,8 @@ async function updateStrategy(currentStrategy, decisionText) {
   });
 
   const output = res.choices[0].message.content.trim();
+  
+  console.log("\nupdateStrategy() gpt response:", output, "\n");
   
   try {
     // Parse the output as JSON
@@ -89,13 +64,13 @@ async function processRound({
   wildcards = [],
   timeExpired = false
 }) {
-  console.log('\n\n\n\n\n\n\n\n\n[ai.js] processRound: Processing round with:');
-  console.log('- Strategy:', JSON.stringify(currentStrategy, null, 2));
-  console.log('- Scenario:', currentScenario);
-  console.log('- Profile:', currentProfile);
-  console.log('- Votes:', votes.length);
-  console.log('- Wildcards:', wildcards.length);
-  console.log('- Time Expired:', timeExpired);
+  console.log('\n\n\n\n\n\n\n\n\n[ai.js] processRound: Processing round :');
+  // console.log('- Strategy:', JSON.stringify(currentStrategy, null, 2));
+  // console.log('- Scenario:', currentScenario);
+  // console.log('- Profile:', currentProfile);
+  // console.log('- Votes:', votes.length);
+  // console.log('- Wildcards:', wildcards.length);
+  // console.log('- Time Expired:', timeExpired);
 
   try {
     const prompt = prompts.processRound({
@@ -111,8 +86,8 @@ async function processRound({
     console.log('\n' + '='.repeat(80));
     console.log('PROMPT SENT TO GPT:');
     console.log('='.repeat(80));
-    console.log(prompt);
-    console.log('='.repeat(80) + '\n');
+    // console.log(prompt);
+    // console.log('='.repeat(80) + '\n');
 
     const res = await openai.chat.completions.create({
       model: "gpt-4",
@@ -153,7 +128,7 @@ async function processRound({
       }
 
       // Log the parsed result
-      //console.log('\nParsed result:', JSON.stringify(result, null, 2));
+      // console.log('\nParsed result:', JSON.stringify(result, null, 2));
       console.log('result received');
 
       // Validate the result has all required fields
@@ -224,24 +199,31 @@ ${votes.map(v => `- ${v.user}: "${v.option}"`).join('\n')}
 Wildcards:
 ${wildcards.map(w => `- ${w.user}: "${w.option}"`).join('\n')}
 
-Please provide a concise analysis in the following format:
+Please provide a concise analysis in the following JSON format:
 
-User Patterns:
-- [username]: [pattern description] (frequency)
+{
+  "summary": "A brief summary of the overall voting patterns",
+  "user_patterns": [
+    { "user": "username", "pattern": "pattern description", "frequency": "frequency description" }
+  ],
+  "general_patterns": [
+    "pattern description"
+  ]
+}
 
-General Patterns:
-- [pattern description]
+If there isn't enough data to identify patterns, return a JSON object with just a summary field:
 
-IMPORTANT: Format your response exactly as shown above, with "User Patterns:" and "General Patterns:" sections.
-if there isn't enough data - Return a single paragraph which summarises the general information in the votes and wildcards.`;
+{
+  "summary": "Not enough voting data to identify patterns yet"
+}`;
 
   try {
     const response = await openai.chat.completions.create({
-      model: "gpt-4o",
+      model: "gpt-4",
       messages: [
         {
           role: "system",
-          content: "You are an expert at analyzing voting patterns and user behavior. Format your response with User Patterns and General Patterns sections."
+          content: "You are an expert at analyzing voting patterns and user behavior. Always return valid JSON."
         },
         {
           role: "user",
@@ -253,52 +235,37 @@ if there isn't enough data - Return a single paragraph which summarises the gene
     });
 
     const content = response.choices[0].message.content.trim();
-    
-console.log("\n\n\n\n\nVOTING PATTERNS RESPONSE:", content, "\n\n\n\n\n\n");
+    console.log("\nanalyzeVotingPatterns() gpt response:", content, "\n");
 
-    // Parse the response into structured data
-    const analysis = {
-      userPatterns: [],
-      generalPatterns: []
-    };
-
-    const sections = content.split('\n\n');
-    for (const section of sections) {
-      if (section.startsWith('User Patterns:')) {
-        const patterns = section.split('\n').slice(1);
-        analysis.userPatterns = patterns.map(pattern => {
-          const match = pattern.match(/^- (.+?): (.+) \((.+)\)$/);
-          if (match) {
-            return {
-              user: match[1].trim(),
-              pattern: match[2].trim(),
-              frequency: match[3].trim()
-            };
-          }
-          return null;
-        }).filter(Boolean);
-      } else if (section.startsWith('General Patterns:')) {
-        const patterns = section.split('\n').slice(1);
-        analysis.generalPatterns = patterns
-          .map(pattern => pattern.replace(/^- /, '').trim())
-          .filter(Boolean);
-      }
+    try {
+      // Parse the response as JSON
+      const analysis = JSON.parse(content);
+      
+      // Ensure the response has the expected structure
+      return {
+        summary: analysis.summary || "No summary available",
+        userPatterns: analysis.user_patterns || [],
+        generalPatterns: analysis.general_patterns || []
+      };
+    } catch (parseError) {
+      console.error('Error parsing GPT response:', parseError);
+      return {
+        summary: "Error analyzing patterns",
+        userPatterns: [],
+        generalPatterns: []
+      };
     }
-    
-    console.log('ANALYSIS:', JSON.stringify(analysis, null, 2));
-    return analysis;
   } catch (error) {
     console.error('Error analyzing voting patterns:', error);
     return {
+      summary: "Error analyzing patterns",
       userPatterns: [],
-      generalPatterns: ["Error analyzing patterns"]
+      generalPatterns: []
     };
   }
 }
 
 module.exports = {
-  generateScenario,
-  // generateOptions,
   scoreAlignment,
   updateStrategy,
   generateCompanyProfile,

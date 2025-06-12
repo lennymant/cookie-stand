@@ -27,19 +27,9 @@ async function startRound() {
     // Get current state
     const currentState = state.getState();
     
-    // Process the round to get new scenario and options
-    const result = await ai.processRound({
-      currentStrategy: currentState.strategy,
-      currentScenario: currentState.scenario,
-      currentProfile: currentState.companyProfile
-    });
-
-    if (!result || !result.options || !Array.isArray(result.options)) {
-      throw new Error('Invalid options in processRound result');
-    }
-
-    // Start the round with new scenario and options
-    await state.startRound(result.newScenario, result.options);
+    // Start the round with current scenario and options
+    // The scenario will be updated during state.updateStrategy after votes
+    await state.startRound(currentState.scenario, currentState.options);
     
     // Wait for strategy duration, then resolve
     setTimeout(async () => {

@@ -25,6 +25,15 @@ let votedUsers = new Set(); // Track users who have voted in the current round
 let roundInProgress = false; // Track if a round is in progress
 let votingAnalysisTimer = null;
 
+// Game states
+const GAME_STATES = {
+  INIT: '00 - game-init',      // Game is initializing
+  ON: '01 - game-on',         // Voting is open
+  ADJUST: '02 - game-adjust'  // Voting closed, processing
+};
+
+let currentGameState = GAME_STATES.INIT;
+
 const USERS_FILE = path.join(__dirname, '../../data/users.json');
 
 // Load users from file if available
@@ -86,12 +95,20 @@ function getStrategyTimeRemaining() {
 async function initialize() {
   try {
     logWithTimestamp('Starting game state initialization...');
+    currentGameState = GAME_STATES.INIT; // Set initial state
     
     // Set initial values
     strategy = config.company.initialStrategy;
     companyProfile = config.company.initialProfile;
     currentScenario = "Welcome to Cookie Stand! Let's start our first month.";
     currentMonth = 1;
+    
+    // Add month 1 marker to ticker
+    tickerLog.push({
+      type: 'month',
+      month: currentMonth,
+      timestamp: new Date().toISOString()
+    });
     
     // Get initial options
     const result = await ai.processRound({
@@ -115,12 +132,14 @@ async function initialize() {
 
     // Set round as in progress
     roundInProgress = true;
+    currentGameState = GAME_STATES.ON; // Set state to game-on after initialization
     
     logWithTimestamp('Game initialized:', {
       strategy,
       currentMonth,
       optionsCount: options.length,
-      roundInProgress
+      roundInProgress,
+      gameState: currentGameState
     });
 
     isInitialized = true;
@@ -143,6 +162,7 @@ async function initialize() {
       }
     ];
     roundInProgress = true;
+    currentGameState = GAME_STATES.ON; // Set state to game-on even after failure
     isInitialized = true;
     
     logWithTimestamp('Using default values after initialization failure');
@@ -267,10 +287,15 @@ function getState(userId) {
           .replace(/,(\s*[}\]])/g, '$1') // Remove trailing commas
           .trim();
         
-        parsedStrategy = JSON.parse(sanitizedStrategy);
-      } catch (e2) {
-        console.error('Error parsing sanitized strategy:', e2);
-        // If all parsing attempts fail, use the original string
+        try {
+          parsedStrategy = JSON.parse(sanitizedStrategy);
+        } catch (e2) {
+          console.error('Error parsing sanitized strategy:', e2);
+          // If all parsing attempts fail, return the original string
+          parsedStrategy = strategy;
+        }
+      } catch (e3) {
+        console.error('Error sanitizing strategy:', e3);
         parsedStrategy = strategy;
       }
     }
@@ -300,7 +325,9 @@ function getState(userId) {
     currentMonth,
     currentScenario,
     options,
-    votedOptionId // Add the voted option ID to the state
+    votedOptionId,
+    gameState: currentGameState,
+    gameRunning: schedulerRunning
   };
 }
 
@@ -393,7 +420,23 @@ async function updateStrategy(newStrategy, commentary, selectedOption) {
     strategy = result.newStrategy || strategy;
     companyProfile = result.newProfile || companyProfile;
     currentScenario = result.newScenario || currentScenario;
+    
+    // Clear existing options before setting new ones
     options = [];
+    
+    // Update options with new options from AI
+    if (result.options && Array.isArray(result.options)) {
+      options = result.options.map((opt, i) => ({
+        id: `${Date.now()}_${i}`,
+        text: opt.text || "Option " + (i + 1),
+        alignment: opt.alignment || 0,
+        explanation: opt.explanation || '',
+        votes: []
+      }));
+      console.log('New options set:', options);
+    } else {
+      console.log('No new options received from AI');
+    }
 
     // Record in history
     roundHistory.push({
@@ -406,7 +449,7 @@ async function updateStrategy(newStrategy, commentary, selectedOption) {
       companyProfile,
       votes: recentVotes,
       wildcards: recentWildcards,
-      votingAnalysis: votingAnalysis // Use current voting analysis
+      votingAnalysis: votingAnalysis
     });
 
     // Trim history if needed
@@ -427,6 +470,14 @@ async function updateStrategy(newStrategy, commentary, selectedOption) {
 
 function getTickerLog() {
   return tickerLog.slice(-10).reverse(); // newest first
+}
+
+function addTickerEntry(entry) {
+  tickerLog.push(entry);
+  if (tickerLog.length > config.ui.maxTickerEntries) {
+    tickerLog = tickerLog.slice(-config.ui.maxTickerEntries);
+  }
+  logWithTimestamp(`Added ticker entry: ${entry.type}${entry.month ? ' ' + entry.month : ''}`);
 }
 
 async function registerUser(id, name) {
@@ -487,7 +538,7 @@ function beginScheduler() {
   schedulerTimeout = setTimeout(() => {
     const scheduler = require('./scheduler');
     scheduler.beginScheduler();
-  }, 3000); // warm-up
+  }, config.intervals.schedulerWarmup); // Use config value for warmup
 }
 
 // Modify startRound to use processRound for scenario generation
@@ -499,7 +550,9 @@ async function startRound(newScenario, newOptions) {
 
   console.log(`\n🌀 Starting Month ${currentMonth}...`);
   roundInProgress = true;
-  votedUsers.clear();
+  votedUsers.clear(); // Clear voted users when starting new round
+  strategyStartTime = Date.now(); // Reset timer when starting new round
+  currentGameState = GAME_STATES.ON; // Set state to game-on
 
   try {
     // Update scenario and options
@@ -513,13 +566,17 @@ async function startRound(newScenario, newOptions) {
         text: opt.text || "Option " + (i + 1),
         alignment: opt.alignment || 0,
         explanation: opt.explanation || '',
-        votes: []
+        votes: [] // Ensure votes array is empty for new options
       }));
+    } else {
+      // If no new options provided, clear existing options
+      options = [];
     }
 
     logWithTimestamp('Round started with:', {
       scenario: currentScenario,
-      optionsCount: options.length
+      optionsCount: options.length,
+      gameState: currentGameState
     });
   } catch (error) {
     console.error('Error starting round:', error);
@@ -531,6 +588,7 @@ async function startRound(newScenario, newOptions) {
 // Modify resolveRound to use the timeout variable
 async function resolveRound() {
   try {
+    currentGameState = GAME_STATES.ADJUST; // Set state to game-adjust
     const votes = getVotes();
     const winning = votes.sort((a, b) => b.votes - a.votes)[0];
 
@@ -631,12 +689,21 @@ function endRound() {
   options = []; // Clear options when round ends
   votedUsers.clear(); // Clear voted users for next round
   
-  // Preserve voting analysis by not clearing it
-  // votingAnalysis will be updated by the votingAnalysisTimer
-  
   // Increment month counter here, after the round is fully processed
   currentMonth++;
   logWithTimestamp(`Month incremented to ${currentMonth}`);
+
+  // Add month marker to ticker
+  tickerLog.push({
+    type: 'month',
+    month: currentMonth,
+    timestamp: new Date().toISOString()
+  });
+
+  // Trim ticker log if needed
+  if (tickerLog.length > config.ui.maxTickerEntries) {
+    tickerLog = tickerLog.slice(-config.ui.maxTickerEntries);
+  }
   
   logWithTimestamp('Round ended. New state:', {
     roundInProgress,
@@ -661,5 +728,6 @@ module.exports = {
   isSchedulerRunning,
   startRound,
   endRound,
-  updateVotingAnalysis
+  updateVotingAnalysis,
+  addTickerEntry
 };

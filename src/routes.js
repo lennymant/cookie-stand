@@ -48,7 +48,11 @@ router.post('/vote', (req, res) => {
 // Get full round history (for dashboard)
 router.get('/history', (req, res) => {
   const { strategy, companyProfile, roundHistory } = state.getState();
-  res.json({ strategy, companyProfile, history: roundHistory });
+  res.json({ 
+    strategy, 
+    companyProfile, 
+    history: roundHistory || [] 
+  });
 });
 
 // Submit wildcard
@@ -70,14 +74,39 @@ router.post('/wildcard', async (req, res) => {
 
 // Get ticker log
 router.get('/ticker', (req, res) => {
-  res.json(state.getTickerLog());
+  const tickerLog = state.getTickerLog();
+  res.json(tickerLog || []);
+});
+
+// Add ticker entry
+router.post('/ticker', (req, res) => {
+  const { type, month, timestamp } = req.body;
+  if (type === 'month') {
+    // Check if we already have a marker for this month
+    const existingMonthMarker = state.getTickerLog().find(entry => 
+      entry.type === 'month' && entry.month === month
+    );
+    
+    if (!existingMonthMarker) {
+      state.addTickerEntry({
+        type: 'month',
+        month,
+        timestamp
+      });
+      res.json({ success: true });
+    } else {
+      res.json({ success: false, message: 'Month marker already exists' });
+    }
+  } else {
+    res.status(400).json({ error: 'Invalid ticker entry type' });
+  }
 });
 
 // Serve config to frontend
 router.get('/config', (req, res) => {
   // Only send the intervals to the frontend
   res.json({
-    intervals: config.intervals
+    intervals: config.intervals || {}
   });
 });
 
@@ -139,6 +168,18 @@ router.post('/update-name', async (req, res) => {
       details: error.message 
     });
   }
+});
+
+// Restart game
+router.post('/restart', (req, res) => {
+  state.logWithTimestamp('Restarting game...');
+  state.stopScheduler();
+  state.initialize().then(() => {
+    state.startScheduler();
+    res.json({ success: true });
+  }).catch(error => {
+    res.status(500).json({ error: error.message });
+  });
 });
 
 module.exports = router;

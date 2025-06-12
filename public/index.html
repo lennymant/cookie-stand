@@ -16,6 +16,29 @@
             font-size: 1rem;
             opacity: 0.8;
         }
+        .footer {
+            position: fixed;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            background: var(--color-white);
+            padding: 0.5rem;
+            text-align: center;
+            border-top: 1px solid var(--color-border);
+            font-size: 0.8rem;
+            color: var(--color-text);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        .game-state {
+            font-family: monospace;
+            font-weight: bold;
+            color: var(--color-primary);
+        }
+        #refresh-timer {
+            font-family: monospace;
+        }
     </style>
 </head>
 <body>
@@ -39,15 +62,18 @@
 
             <div class="wildcard-box">
                 <h2>Submit Wildcard</h2>
-                <div class="wildcard-input">
+                <form id="wildcardForm" class="wildcard-input">
                     <input type="text" id="wildcardInput" placeholder="Enter your wildcard move...">
-                    <button onclick="submitWildcard()">Submit</button>
-                </div>
+                    <button type="submit">Submit</button>
+                </form>
             </div>
         </div>
     </div>
 
-    <div id="refresh-timer">Loading...</div>
+    <div class="footer">
+        <div id="game-state" class="game-state"></div>
+        <div id="refresh-timer"></div>
+    </div>
 
     <script src="main.js"></script>
 </body>

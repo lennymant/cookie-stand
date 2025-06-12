@@ -97,6 +97,25 @@ document.getElementById("userName")?.addEventListener("click", async function() 
   }
 });
 
+// Add debounce function
+function debounce(func, wait) {
+  let timeout;
+  return function executedFunction(...args) {
+    const later = () => {
+      clearTimeout(timeout);
+      func(...args);
+    };
+    clearTimeout(timeout);
+    timeout = setTimeout(later, wait);
+  };
+}
+
+// Debounce the state updates
+const debouncedFetchState = debounce(fetchState, 1000);
+
+// Update the interval to use debounced function
+setInterval(debouncedFetchState, config.intervals.stateRefresh);
+
 async function fetchState() {
   try {
     console.log('Fetching state...');
@@ -105,6 +124,37 @@ async function fetchState() {
       throw new Error(`HTTP error! status: ${res.status}`);
     }
     const data = await res.json();
+    console.log('Received state data:', data);
+
+    // Update game state in footer
+    const gameStateElement = document.getElementById('game-state');
+    if (gameStateElement) {
+      const gameState = data.gameState || 'Unknown';
+      // Extract the status code from the game state
+      const statusCode = gameState.split(' - ')[0] || '00';
+      gameStateElement.textContent = statusCode;
+    }
+
+    // Check if we're in a round transition (round ended but new one not started)
+    const modal = document.getElementById('winningVoteModal');
+    if (modal) {
+      if (data.roundEnded && !data.roundInProgress) {
+        // Show winning vote modal
+        const winningContent = document.getElementById('winningVoteContent');
+        if (winningContent) {
+          winningContent.innerHTML = `
+            <div class="winning-option">${data.winningOption || 'No winning option yet'}</div>
+            <div class="vote-stats">
+              ${data.voteStats ? `Votes: ${data.voteStats.total || 0}` : ''}
+            </div>
+          `;
+        }
+        modal.classList.add('show');
+      } else if (data.roundInProgress) {
+        // Hide modal when new round starts
+        modal.classList.remove('show');
+      }
+    }
 
     // Check if strategy has changed
     if (currentStrategy && data.strategy !== currentStrategy) {
@@ -112,11 +162,44 @@ async function fetchState() {
     }
     currentStrategy = data.strategy;
 
+    // Check if month has changed and add marker to ticker
+    if (data.currentMonth && data.currentMonth !== localStorage.getItem('lastMonth')) {
+      try {
+        // Add month marker to ticker
+        const tickerRes = await fetch(`${basePath}/api/ticker`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            type: 'month',
+            month: data.currentMonth,
+            timestamp: new Date().toISOString()
+          })
+        });
+        
+        if (!tickerRes.ok) {
+          console.warn('Failed to add month marker to ticker:', tickerRes.status);
+        }
+      } catch (error) {
+        console.warn('Error adding month marker:', error);
+      }
+      
+      // Store current month
+      localStorage.setItem('lastMonth', data.currentMonth);
+    }
+
     // Update company profile
     if (data.companyProfile) {
       const profileElement = document.getElementById("company-profile");
       if (profileElement) {
-        profileElement.textContent = data.companyProfile;
+        try {
+          // Handle both string and object formats
+          const profileObj = typeof data.companyProfile === 'string' ? 
+            JSON.parse(data.companyProfile) : data.companyProfile;
+          profileElement.textContent = profileObj.updatedProfile || data.companyProfile;
+        } catch (e) {
+          console.error('Error parsing profile:', e);
+          profileElement.textContent = data.companyProfile;
+        }
         currentCompanyProfile = data.companyProfile;
       }
     }
@@ -133,7 +216,15 @@ async function fetchState() {
     // Update strategy
     const strategyElement = document.getElementById("strategy");
     if (strategyElement) {
-      strategyElement.textContent = data.strategy || "Loading strategy...";
+      try {
+        // Handle both string and object formats
+        const strategyObj = typeof data.strategy === 'string' ? 
+          JSON.parse(data.strategy) : data.strategy;
+        strategyElement.textContent = strategyObj.summary || data.strategy || "Loading strategy...";
+      } catch (e) {
+        console.error('Error parsing strategy:', e);
+        strategyElement.textContent = data.strategy || "Loading strategy...";
+      }
     }
 
     // Update strategy countdown
@@ -148,89 +239,90 @@ async function fetchState() {
       }
     }
 
-    // Update options - Optimized rendering
+    // Get the options container
     const container = document.getElementById("options");
     if (!container) return;
-    
-    // If round is not in progress, show waiting message
-    if (!data.roundInProgress) {
-      container.innerHTML = '<p>Waiting for next round...</p>';
-      return;
-    }
-    
-    // If user has voted in this round, show the vote confirmation
-    if (data.hasVoted) {
-      // Try to get the vote text from the current options if available
-      let votedText = null;
-      if (data.votedOptionId && data.options && Array.isArray(data.options)) {
-        const votedOption = data.options.find(opt => opt.id === data.votedOptionId);
-        if (votedOption) {
-          votedText = votedOption.text;
-          console.log('Found vote text in current options:', votedText);
+
+    // Store current options for comparison
+    const currentOptions = container.getAttribute('data-options') || '';
+    const newOptions = data.options && Array.isArray(data.options) ? 
+      data.options.map(opt => opt.id).join('|') : '';
+
+    // Only update if options have changed
+    if (currentOptions !== newOptions) {
+      // If round is not in progress, show waiting message
+      if (!data.roundInProgress) {
+        container.innerHTML = '<p>Waiting for next round...</p>';
+        container.setAttribute('data-options', '');
+        return;
+      }
+
+      // If user has voted in this round, show the vote confirmation
+      if (data.hasVoted && data.roundInProgress) {
+        // Try to get the vote text from the current options if available
+        let votedText = null;
+        if (data.votedOptionId && data.options && Array.isArray(data.options)) {
+          const votedOption = data.options.find(opt => opt.id === data.votedOptionId);
+          if (votedOption) {
+            votedText = votedOption.text;
+            console.log('Found vote text in current options:', votedText);
+          }
         }
-      }
-      
-      // If not found in current options, try localStorage
-      if (!votedText) {
-        const storedVote = localStorage.getItem("lastVotedOption");
-        console.log('Retrieved stored vote from localStorage:', storedVote);
-        votedText = storedVote;
-      }
-      
-      // If still not found, use lastVotedOption variable
-      if (!votedText) {
-        console.log('Using lastVotedOption variable:', lastVotedOption);
-        votedText = lastVotedOption;
-      }
-      
-      // If still no vote text found, use default message
-      if (!votedText) {
-        console.log('No vote text found, using default message');
-        votedText = "Your vote has been recorded";
-      }
-      
-      console.log('Final vote text to display:', votedText);
-      
-      container.innerHTML = `
-        <div class="vote-confirmation">
-          <h2>You voted to:</h2>
-          <div class="voted-option">${votedText}</div>
-        </div>
-      `;
-      return;
-    }
-
-    // Handle empty or invalid options
-    if (!data.options || !Array.isArray(data.options) || data.options.length === 0) {
-      container.innerHTML = '<p>Waiting for options...</p>';
-      return;
-    }
-
-    // Only show options if we have valid options and the user hasn't voted
-    const fragment = document.createDocumentFragment();
-    
-    data.options.forEach(option => {
-      if (!option.id || !option.text) return;
-      
-      const div = document.createElement("div");
-      div.className = "option";
-      div.innerHTML = `
-        <div class="option-text">${option.text}</div>
-        <div class="option-controls">
-          <button class="vote-button" onclick="vote('${option.id}')">Vote</button>
-          <div class="alignment-bar">
-            <div class="alignment-fill" style="width: ${option.alignment || 0}%"></div>
+        
+        // If not found in current options, use default message
+        if (!votedText) {
+          console.log('No vote text found, using default message');
+          votedText = "Your vote has been recorded";
+        }
+        
+        console.log('Final vote text to display:', votedText);
+        
+        container.innerHTML = `
+          <div class="vote-confirmation">
+            <h2>You voted to:</h2>
+            <div class="voted-option">${votedText}</div>
           </div>
-          <div class="alignment-text">${option.alignment || 0}% aligned</div>
+        `;
+        container.setAttribute('data-options', newOptions);
+        return;
+      }
+
+      // Handle empty or invalid options
+      if (!data.options || !Array.isArray(data.options) || data.options.length === 0) {
+        console.log('No options available, showing waiting message');
+        container.innerHTML = '<p>Waiting for options...</p>';
+        container.setAttribute('data-options', '');
+        return;
+      }
+
+      // Display new options
+      console.log('Displaying new options:', data.options);
+      container.innerHTML = `
+        <div class="options-panel">
+          ${data.options.map(option => `
+            <div class="option">
+              <div class="option-text">${option.text}</div>
+              <div class="option-controls">
+                <button class="vote-button" onclick="vote('${option.id}')">Vote</button>
+                <div class="alignment-bar">
+                  <div class="alignment-fill" style="width: ${(option.alignment + 1) * 50}%"></div>
+                </div>
+                <div class="alignment-text">Alignment: ${option.alignment}</div>
+              </div>
+            </div>
+          `).join('')}
         </div>
       `;
-      fragment.appendChild(div);
-    });
-    
-    container.innerHTML = '';
-    container.appendChild(fragment);
+      container.setAttribute('data-options', newOptions);
+    }
   } catch (error) {
     console.error('Error fetching state:', error);
+    // Show error state in options container
+    const container = document.getElementById("options");
+    if (container) {
+      container.innerHTML = '<p>Error loading options. Please refresh the page.</p>';
+      container.setAttribute('data-options', '');
+    }
   }
 }
 
@@ -248,11 +340,6 @@ async function vote(optionId) {
     });
 
     if (res.ok) {
-      // Store the voted option text
-      localStorage.setItem("lastVotedOption", votedOption);
-      lastVotedOption = votedOption;
-      console.log('Stored vote:', votedOption);
-
       // Update UI immediately with the actual vote text
       const optionsContainer = document.getElementById("options");
       optionsContainer.innerHTML = `
@@ -270,7 +357,9 @@ async function vote(optionId) {
   }
 }
 
-async function submitWildcard() {
+async function submitWildcard(e) {
+  if (e) e.preventDefault();
+  
   const input = document.getElementById("wildcardInput");
   const text = input.value.trim();
   if (!text) return;
@@ -282,26 +371,29 @@ async function submitWildcard() {
       body: JSON.stringify({ userId, text })
     });
 
-    if (res.ok) {
-      // Store the wildcard text
-      localStorage.setItem("lastVotedOption", text);
-      lastVotedOption = text;
-      console.log('Stored wildcard:', text);
-
-      // Update UI immediately
-      const optionsContainer = document.getElementById("options");
-      optionsContainer.innerHTML = `
-        <div class="vote-confirmation">
-          <h2>You submitted a wildcard:</h2>
-          <div class="voted-option">${text}</div>
-        </div>
-      `;
-
-      input.value = "";
-      await fetchState();
+    if (!res.ok) {
+      throw new Error(`HTTP error! status: ${res.status}`);
     }
+
+    const data = await res.json();
+    if (!data || !data.success) {
+      throw new Error('Invalid response from server');
+    }
+
+    // Update UI immediately
+    const optionsContainer = document.getElementById("options");
+    optionsContainer.innerHTML = `
+      <div class="vote-confirmation">
+        <h2>You submitted a wildcard:</h2>
+        <div class="voted-option">${text}</div>
+      </div>
+    `;
+
+    input.value = "";
+    await fetchState();
   } catch (error) {
     console.error('Error submitting wildcard:', error);
+    alert('Error submitting wildcard. Please try again.');
   }
 }
 
@@ -316,8 +408,6 @@ function updateCountdown() {
 
 // Clear the last voted option when strategy changes
 function clearVoteState() {
-  localStorage.removeItem("lastVotedOption");
-  lastVotedOption = null;
   // Clear the options container
   const optionsContainer = document.getElementById("options");
   if (optionsContainer) {
@@ -401,26 +491,35 @@ async function fetchVotingAnalysis() {
             if (analysisContainer) {
                 let analysisHtml = '<div class="analysis-section">';
                 
-                if (data.votingAnalysis.userPatterns && data.votingAnalysis.userPatterns.length > 0) {
-                    analysisHtml += `
-                        <h3>User Patterns</h3>
-                        <ul>
-                            ${data.votingAnalysis.userPatterns.map(pattern => `
-                                <li><strong>${pattern.user}</strong>: ${pattern.pattern} (${pattern.frequency})</li>
-                            `).join('')}
-                        </ul>
-                    `;
-                }
-                
-                if (data.votingAnalysis.generalPatterns && data.votingAnalysis.generalPatterns.length > 0) {
-                    analysisHtml += `
-                        <h3>General Patterns</h3>
-                        <ul>
-                            ${data.votingAnalysis.generalPatterns.map(pattern => `
-                                <li>${pattern}</li>
-                            `).join('')}
-                        </ul>
-                    `;
+                try {
+                    // Handle both string and object formats
+                    const analysis = typeof data.votingAnalysis === 'string' ? 
+                        JSON.parse(data.votingAnalysis) : data.votingAnalysis;
+                    
+                    if (analysis.userPatterns && analysis.userPatterns.length > 0) {
+                        analysisHtml += `
+                            <h3>User Patterns</h3>
+                            <ul>
+                                ${analysis.userPatterns.map(pattern => `
+                                    <li><strong>${pattern.user}</strong>: ${pattern.pattern} (${pattern.frequency})</li>
+                                `).join('')}
+                            </ul>
+                        `;
+                    }
+                    
+                    if (analysis.generalPatterns && analysis.generalPatterns.length > 0) {
+                        analysisHtml += `
+                            <h3>General Patterns</h3>
+                            <ul>
+                                ${analysis.generalPatterns.map(pattern => `
+                                    <li>${pattern}</li>
+                                `).join('')}
+                            </ul>
+                        `;
+                    }
+                } catch (e) {
+                    console.error('Error parsing voting analysis:', e);
+                    analysisHtml += '<p>Error loading voting analysis...</p>';
                 }
                 
                 if ((!data.votingAnalysis.userPatterns || data.votingAnalysis.userPatterns.length === 0) && 
@@ -441,7 +540,4 @@ async function fetchVotingAnalysis() {
 fetchVotingAnalysis();
 
 // Add event listener for wildcard submission
-document.getElementById('wildcardForm')?.addEventListener('submit', function(e) {
-    e.preventDefault();
-    submitWildcard();
-});
+document.getElementById('wildcardForm')?.addEventListener('submit', submitWildcard);

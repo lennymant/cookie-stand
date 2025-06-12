@@ -653,4 +653,19 @@ h3 {
     color: var(--color-primary);
     position: absolute;
     left: -15px;
+}
+
+.restart-btn {
+    background-color: var(--color-warning);
+    color: white;
+    border: none;
+    padding: 8px 16px;
+    border-radius: 4px;
+    cursor: pointer;
+    font-weight: 600;
+    transition: background-color 0.2s;
+}
+
+.restart-btn:hover {
+    background-color: var(--color-warning-dark);
 } 

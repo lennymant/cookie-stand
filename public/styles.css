@@ -240,6 +240,22 @@ main {
   border-left-color: var(--color-secondary);
 }
 
+.ticker-entry.month-marker {
+  background-color: #f8f9fa;
+  border-left: 4px solid #4CAF50;
+  color: #2ecc71;
+  font-weight: 600;
+  padding: 0.75rem;
+  margin: 0.5rem 0;
+  text-align: center;
+  border-radius: 4px;
+}
+
+.ticker-entry.month-marker strong {
+  color: #2ecc71;
+  font-size: 1.1em;
+}
+
 .ticker-entry .emoji {
   margin-right: 0.5rem;
   font-size: 1.1rem;
@@ -363,26 +379,31 @@ main {
 /* Mobile-specific styles */
 @media (max-width: 768px) {
   .option {
+    flex-direction: column;
     padding: 1rem;
+    gap: 1rem;
   }
 
   .option-text {
-    flex: 0 0 75%;
-    font-size: 1rem;
-    line-height: 1.4;
-    margin-bottom: 0;
+    flex: 1;
+    width: 100%;
+    padding-right: 0;
+    margin-bottom: 0.5rem;
   }
 
   .option-controls {
-    flex: 0 0 25%;
-    min-width: 90px;
-    max-width: 120px;
+    flex: 1;
+    width: 100%;
+    min-width: unset;
+    max-width: unset;
+    align-items: stretch;
   }
 
   .vote-button {
     width: 100%;
-    padding: 0.75rem 0.5rem;
-    font-size: 0.9rem;
+    padding: 0.75rem;
+    font-size: 1rem;
+    margin-bottom: 0.5rem;
   }
 
   .alignment-bar {
@@ -391,8 +412,28 @@ main {
   }
 
   .alignment-text {
-    font-size: 0.8rem;
+    font-size: 0.9rem;
     margin-top: 0.25rem;
+    text-align: left;
+  }
+
+  .options-panel {
+    width: 100%;
+    max-width: 100%;
+    margin: 0;
+    padding: 0;
+  }
+
+  .options-box {
+    width: 100%;
+    padding: 1rem;
+    box-sizing: border-box;
+  }
+
+  .options-list {
+    width: 100%;
+    margin: 0;
+    padding: 0;
   }
 
   /* Mobile styles for wildcard box */
@@ -421,4 +462,118 @@ main {
     padding: 0.75rem;
     font-size: 1rem;
   }
+}
+
+/* Modal styles */
+.modal {
+    display: none;
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background-color: rgba(0, 0, 0, 0.7);
+    z-index: 9999;
+    justify-content: center;
+    align-items: center;
+    opacity: 0;
+    transition: opacity 0.3s ease-in-out;
+}
+
+.modal.show {
+    display: flex;
+    opacity: 1;
+}
+
+.modal-content {
+    background-color: #fff;
+    padding: 2rem;
+    border-radius: 8px;
+    max-width: 90%;
+    width: 500px;
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+    transform: translateY(-20px);
+    transition: transform 0.3s ease-in-out;
+    position: relative;
+}
+
+.modal.show .modal-content {
+    transform: translateY(0);
+}
+
+.modal-content h2 {
+    color: #333;
+    margin-bottom: 1rem;
+    text-align: center;
+    font-size: 1.5rem;
+}
+
+#winningVoteContent {
+    text-align: center;
+    font-size: 1.1rem;
+    line-height: 1.5;
+}
+
+#winningVoteContent .winning-option {
+    font-weight: bold;
+    color: #2ecc71;
+    margin: 1rem 0;
+    padding: 1rem;
+    background-color: #f8f9fa;
+    border-radius: 4px;
+    border: 1px solid #e0e0e0;
+}
+
+#winningVoteContent .vote-stats {
+    margin-top: 1rem;
+    color: #666;
+    font-size: 0.9rem;
+}
+
+/* Add backdrop blur for modern browsers */
+@supports (backdrop-filter: blur(5px)) {
+    .modal {
+        backdrop-filter: blur(5px);
+    }
+}
+
+/* Ensure modal is above all other content */
+.modal {
+    z-index: 9999;
+}
+
+/* Add animation for modal content */
+@keyframes modalSlideIn {
+    from {
+        opacity: 0;
+        transform: translateY(-20px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+.modal.show .modal-content {
+    animation: modalSlideIn 0.3s ease-out forwards;
+}
+
+.analysis-summary {
+    background-color: #f8f9fa;
+    border-left: 4px solid var(--color-primary);
+    padding: 1rem;
+    margin-bottom: 1.5rem;
+    border-radius: 4px;
+}
+
+.analysis-summary h3 {
+    color: var(--color-primary);
+    margin: 0 0 0.5rem 0;
+    font-size: 1.1rem;
+}
+
+.analysis-summary p {
+    margin: 0;
+    line-height: 1.5;
+    color: var(--color-text);
 } 

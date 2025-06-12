@@ -11,77 +11,189 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
 </head>
 <body>
-    <div class="dashboard-container">
-        <div class="dashboard-header">
-            <h1>Cookie Stand Dashboard</h1>
-            
+    <div class="container">
+        <div class="header">
+            <h1>🍪 Cookie Stand Dashboard <span class="user-name">Click to set name</span></h1>
         </div>
-        
-        <div class="dashboard-grid">
-            <div class="column-1">
-                
-                
-                <div class="current-strategy">
-                    <h2>Current Strategy</h2>
-                    <div class="strategy-text">
-                        <p>Loading strategy...</p>
-                    </div>
+
+        <!-- Add modal for winning vote -->
+        <div id="winningVoteModal" class="modal">
+            <div class="modal-content">
+                <h2>Round Results</h2>
+                <div id="winningVoteContent">
+                    <p>Calculating results...</p>
                 </div>
             </div>
-            
-            <div class="column-2">
+        </div>
 
-                <div class="qr-container">
-                    <div id="qrcode"></div>
-                    <p>Scan to join</p>
-                </div>
-                <div class="voting-analysis">
-                    <h2>Voting Analysis</h2>
-                    <div id="votingAnalysisContent">
-                        <p>Loading analysis...</p>
-                    </div>
+        <div class="content">
+            <div class="dashboard-container">
+                <div class="dashboard-header">
+                    <h1>Cookie Stand Dashboard</h1>
+                    
                 </div>
                 
-                <div class="round-history">
-                    <h2>Round History</h2>
-                    <div id="historyContainer">
-                        <p>Loading history...</p>
+                <div class="dashboard-grid">
+                    <div class="column-1">
+                        
+                        
+                        <div class="current-strategy">
+                            <h2>Current Strategy</h2>
+                            <div class="strategy-text">
+                                <p>Loading strategy...</p>
+                            </div>
+                        </div>
                     </div>
-                </div>
-            </div>
-            
-            <div class="column-3">
-                <div class="company-profile">
-                    <h2>Company Profile</h2>
-                    <p>Loading profile...</p>
-                </div>
-                <div class="live-activity">
-                    <h2>Live Activity</h2>
-                    <div id="tickerContainer">
-                        <p>Waiting for activity...</p>
-                    </div>
-                   
-                </div>
+                    
+                    <div class="column-2">
 
-                <div class="game-controls">
-                    <h2>Game Controls</h2>
-                    <div class="game-status">
-                        <div class="status-indicator running"></div>
-                        <span class="status-text">GAME RUNNING</span>
+                        <div class="qr-container">
+                            <div id="qrcode"></div>
+                            <p>Scan to join</p>
+                        </div>
+                        <div class="voting-analysis">
+                            <h2>Voting Analysis</h2>
+                            <div id="votingAnalysisContent">
+                                <p>Loading analysis...</p>
+                            </div>
+                        </div>
+                        
+                        <div class="round-history">
+                            <h2>Round History</h2>
+                            <div id="historyContainer">
+                                <p>Loading history...</p>
+                            </div>
+                        </div>
                     </div>
-                    <div class="control-panel">
-                        <button id="gameControl" class="running">Stop Game</button>
-                        <button id="forceRound">Force New Round</button>
-                    </div>
-                    <div class="timer-display">
-                        <span class="month">Month 1</span>
-                        <span class="countdown">00:00</span>
+                    
+                    <div class="column-3">
+                        <div class="company-profile">
+                            <h2>Company Profile</h2>
+                            <p>Loading profile...</p>
+                        </div>
+                        <div class="live-activity">
+                            <h2>Live Activity</h2>
+                            <div id="tickerContainer">
+                                <p>Waiting for activity...</p>
+                            </div>
+                           
+                        </div>
+
+                        <div class="game-controls">
+                            <h2>Game Controls</h2>
+                            <div class="game-status">
+                                <div class="status-indicator running"></div>
+                                <span class="status-text">GAME RUNNING</span>
+                            </div>
+                            <div class="control-panel">
+                                <button id="gameControl" class="running">Stop Game</button>
+                                <button id="forceRound">Force New Round</button>
+                                <button id="restartBtn" onclick="restartGame()" class="restart-btn">Restart Game</button>
+                            </div>
+                            <div class="timer-display">
+                                <span class="month">Month 1</span>
+                                <span class="countdown">00:00</span>
+                            </div>
+                        </div>
+                        
+                        <div class="status-panel">
+                            <h2>Game Status</h2>
+                            <div class="status-content">
+                                <div class="status-item">
+                                    <span class="label">Current Month:</span>
+                                    <span id="currentMonth" class="value">Loading...</span>
+                                </div>
+                                <div class="status-item">
+                                    <span class="label">Current Scenario:</span>
+                                    <span id="currentScenario" class="value">Loading...</span>
+                                </div>
+                                
+                                <div class="status-item">
+                                    <span class="label">Options:</span>
+                                    <span id="currentOptions" class="value">Loading...</span>
+                                </div>
+
+                                <div class="status-item">
+                                    <span class="label">Current Profile:</span>
+                                    <span id="currentProfile" class="value">Loading...</span>
+                                </div>
+                                <div class="status-item">
+                                    <span class="label">Round Status:</span>
+                                    <span id="roundStatus" class="value">Loading...</span>
+                                </div>
+                                <div class="status-item">
+                                    <span class="label">Voting Status:</span>
+                                    <span id="votingStatus" class="value">Loading...</span>
+                                </div>
+                                <div class="status-item">
+                                    <span class="label">Total Votes:</span>
+                                    <span id="voteCount" class="value">0</span>
+                                </div>
+                                <div class="status-item">
+                                    <span class="label">Current Options:</span>
+                                    <div id="currentOptions" class="options-list">
+                                        <p>Loading options...</p>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <style>
+                            .status-panel {
+                                background: var(--color-white);
+                                padding: 20px;
+                                border-radius: 8px;
+                                box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+                                margin-bottom: 20px;
+                            }
+
+                            .status-content {
+                                display: grid;
+                                gap: 15px;
+                            }
+
+                            .status-item {
+                                display: flex;
+                                flex-direction: column;
+                                gap: 5px;
+                            }
+
+                            .status-item .label {
+                                font-weight: 600;
+                                color: var(--color-primary);
+                            }
+
+                            .status-item .value {
+                                color: var(--color-text);
+                            }
+
+                            .options-list {
+                                margin-top: 10px;
+                                padding: 10px;
+                                background: var(--color-light);
+                                border-radius: 4px;
+                            }
+
+                            .option-item {
+                                padding: 8px;
+                                margin: 5px 0;
+                                background: var(--color-white);
+                                border-left: 3px solid var(--color-primary);
+                                border-radius: 4px;
+                            }
+
+                            .option-item .option-text {
+                                font-weight: 500;
+                                margin-bottom: 5px;
+                            }
+
+                            .option-item .option-stats {
+                                font-size: 0.9em;
+                                color: var(--color-text);
+                            }
+                        </style>
                     </div>
                 </div>
-                
-
-
-                
             </div>
         </div>
     </div>
@@ -122,135 +234,151 @@
 
         async function fetchState() {
             try {
-                const res = await fetch(`${baseUrl}${basePath}/api/current?userId=admin`);
+                const res = await fetch(`${baseUrl}${basePath}/api/current`);
                 if (!res.ok) throw new Error(`HTTP error! status: ${res.status}`);
                 const data = await res.json();
                 
-                console.log('Fetched state:', data); // Debug log
-                
-                // Update company profile
-                if (data.companyProfile) {
-                    const profileElement = document.querySelector('.company-profile p');
-                    if (profileElement) {
-                        try {
-                            const profileObj = typeof data.companyProfile === 'string' ? 
-                                JSON.parse(data.companyProfile) : data.companyProfile;
-                            profileElement.textContent = profileObj.updatedProfile || data.companyProfile;
-                            console.log('Updated profile:', profileObj.updatedProfile || data.companyProfile); // Debug log
-                        } catch (e) {
-                            console.error('Error parsing profile:', e);
-                            profileElement.textContent = data.companyProfile;
+                // Update strategy in the main strategy section
+                const strategySection = document.querySelector('.strategy-text');
+                if (strategySection) {
+                    try {
+                        const strategyObj = typeof data.strategy === 'string' ? 
+                            JSON.parse(data.strategy) : data.strategy;
+                        
+                        // Format strategy sections
+                        let strategyHtml = '';
+                        
+                        // Product & Service Strategy
+                        if (strategyObj.ProductServiceStrategy) {
+                            strategyHtml += `
+                                <div class="strategy-section">
+                                    <h3>Product & Service Strategy</h3>
+                                    <p><strong>${strategyObj.ProductServiceStrategy.summary || ''}</strong></p>
+                                    <ul>
+                                        ${(strategyObj.ProductServiceStrategy.bullets || []).map(bullet => `<li>${bullet || ''}</li>`).join('')}
+                                    </ul>
+                                </div>
+                            `;
                         }
-                    }
-                }
-                
-                // Update strategy
-                if (data.strategy) {
-                    const strategySection = document.querySelector('.strategy-text');
-                    if (strategySection) {
-                        try {
-                            let strategyObj;
-                            if (typeof data.strategy === 'string') {
-                                // Sanitize the string before parsing
-                                const sanitizedStrategy = data.strategy
-                                    .replace(/[\u0000-\u001F\u007F-\u009F]/g, '') // Remove control characters
-                                    .replace(/^\uFEFF/, '') // Remove BOM
-                                    .replace(/\u00A0/g, ' ') // Replace non-breaking spaces
-                                    .replace(/,(\s*[}\]])/g, '$1') // Remove trailing commas
-                                    .trim();
-                                
-                                console.log('Sanitized strategy:', sanitizedStrategy); // Debug log
-                                strategyObj = JSON.parse(sanitizedStrategy);
-                            } else {
-                                strategyObj = data.strategy;
-                            }
-                            
-                            let html = '';
-                            
-                            // Product & Service Strategy
-                            if (strategyObj.ProductServiceStrategy) {
-                                html += `
-                                    <div class="strategy-section">
-                                        <h3>Product & Service Strategy</h3>
-                                        <p><strong>${strategyObj.ProductServiceStrategy.summary}</strong></p>
-                                        <ul>
-                                            ${strategyObj.ProductServiceStrategy.bullets.map(bullet => `<li>${bullet}</li>`).join('')}
-                                        </ul>
-                                    </div>
-                                `;
-                            }
-                            
-                            // Operations & Finance Strategy
-                            if (strategyObj.OperationsFinanceStrategy) {
-                                html += `
-                                    <div class="strategy-section">
-                                        <h3>Operations & Finance Strategy</h3>
-                                        <p><strong>${strategyObj.OperationsFinanceStrategy.summary}</strong></p>
-                                        <ul>
-                                            ${strategyObj.OperationsFinanceStrategy.bullets.map(bullet => `<li>${bullet}</li>`).join('')}
-                                        </ul>
-                                    </div>
-                                `;
-                            }
-                            
-                            // Marketing Strategy
-                            if (strategyObj.MarketingStrategy) {
-                                html += `
-                                    <div class="strategy-section">
-                                        <h3>Marketing Strategy</h3>
-                                        <p><strong>${strategyObj.MarketingStrategy.summary}</strong></p>
-                                        <ul>
-                                            ${strategyObj.MarketingStrategy.bullets.map(bullet => `<li>${bullet}</li>`).join('')}
-                                        </ul>
-                                    </div>
-                                `;
-                            }
-                            
-                            strategySection.innerHTML = html || '<p>No strategy available</p>';
-                            console.log('Updated strategy:', strategyObj); // Debug log
-                        } catch (e) {
-                            console.error('Error parsing strategy:', e);
-                            console.error('Raw strategy data:', data.strategy);
-                            strategySection.innerHTML = `<p>Error updating strategy: ${e.message}</p>`;
+                        
+                        // Operations & Finance Strategy
+                        if (strategyObj.OperationsFinanceStrategy) {
+                            strategyHtml += `
+                                <div class="strategy-section">
+                                    <h3>Operations & Finance Strategy</h3>
+                                    <p><strong>${strategyObj.OperationsFinanceStrategy.summary || ''}</strong></p>
+                                    <ul>
+                                        ${(strategyObj.OperationsFinanceStrategy.bullets || []).map(bullet => `<li>${bullet || ''}</li>`).join('')}
+                                    </ul>
+                                </div>
+                            `;
                         }
+                        
+                        // Marketing Strategy
+                        if (strategyObj.MarketingStrategy) {
+                            strategyHtml += `
+                                <div class="strategy-section">
+                                    <h3>Marketing Strategy</h3>
+                                    <p><strong>${strategyObj.MarketingStrategy.summary || ''}</strong></p>
+                                    <ul>
+                                        ${(strategyObj.MarketingStrategy.bullets || []).map(bullet => `<li>${bullet || ''}</li>`).join('')}
+                                    </ul>
+                                </div>
+                            `;
+                        }
+                        
+                        strategySection.innerHTML = strategyHtml || '<p>No strategy available</p>';
+                    } catch (e) {
+                        console.error('Error parsing strategy:', e);
+                        strategySection.innerHTML = '<p>Error loading strategy</p>';
                     }
-                }
-                
-                // Update game status
-                const statusIndicator = document.querySelector('.status-indicator');
-                const statusText = document.querySelector('.status-text');
-                const toggleButton = document.getElementById('gameControl');
-                
-                if (data.gameRunning) {
-                    statusIndicator.classList.add('running');
-                    statusText.textContent = 'GAME RUNNING';
-                    toggleButton.textContent = 'Stop Game';
-                    toggleButton.classList.remove('stopped');
-                } else {
-                    statusIndicator.classList.remove('running');
-                    statusText.textContent = 'GAME STOPPED';
-                    toggleButton.textContent = 'Start Game';
-                    toggleButton.classList.add('stopped');
                 }
 
-                // Update month and countdown
-                const monthElement = document.querySelector('.timer-display .month');
-                const countdownElement = document.querySelector('.timer-display .countdown');
-                
-                if (monthElement) {
-                    monthElement.textContent = `Month ${data.currentMonth || 'N/A'}`;
+                // Update status elements
+                const currentMonthElement = document.getElementById("currentMonth");
+                if (currentMonthElement) {
+                    currentMonthElement.textContent = data.currentMonth || 'N/A';
+                }
+
+                const currentScenarioElement = document.getElementById("currentScenario");
+                if (currentScenarioElement) {
+                    currentScenarioElement.textContent = data.currentScenario || 'No scenario available';
+                }
+
+                const currentStrategyElement = document.getElementById("currentStrategy");
+                if (currentStrategyElement) {
+                    try {
+                        const strategyObj = typeof data.strategy === 'string' ? 
+                            JSON.parse(data.strategy) : data.strategy;
+                        currentStrategyElement.textContent = strategyObj.summary || data.strategy || 'No strategy available';
+                    } catch (e) {
+                        console.error('Error parsing strategy:', e);
+                        currentStrategyElement.textContent = data.strategy || 'No strategy available';
+                    }
+                }
+
+                const currentProfileElement = document.getElementById("currentProfile");
+                if (currentProfileElement) {
+                    try {
+                        const profileObj = typeof data.companyProfile === 'string' ? 
+                            JSON.parse(data.companyProfile) : data.companyProfile;
+                        currentProfileElement.textContent = profileObj.updatedProfile || data.companyProfile || 'No profile available';
+                    } catch (e) {
+                        console.error('Error parsing profile:', e);
+                        currentProfileElement.textContent = data.companyProfile || 'No profile available';
+                    }
                 }
                 
-                if (countdownElement) {
-                    const timeRemaining = data.strategyTimeRemaining || 0;
-                    const minutes = Math.floor(timeRemaining / 60);
-                    const seconds = timeRemaining % 60;
-                    countdownElement.textContent = `${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
+                // Update round status
+                const roundStatus = document.getElementById("roundStatus");
+                if (roundStatus) {
+                    roundStatus.textContent = data.roundInProgress ? 'Round in progress' : 'Round ended';
+                }
+                
+                // Update voting status
+                const votingStatus = document.getElementById("votingStatus");
+                if (votingStatus) {
+                    votingStatus.textContent = data.roundInProgress ? 'Voting open' : 'Voting closed';
+                }
+                
+                // Update vote count
+                const voteCount = document.getElementById("voteCount");
+                if (voteCount && data.options) {
+                    const totalVotes = data.options.reduce((sum, opt) => sum + (opt.votes ? opt.votes.length : 0), 0);
+                    voteCount.textContent = totalVotes;
+                }
+
+                // Update current options
+                const currentOptions = document.getElementById("currentOptions");
+                if (currentOptions) {
+                    // Don't update if the options haven't changed
+                    const newOptions = data.options && Array.isArray(data.options) ? 
+                        data.options.map(opt => opt.text).join('|') : '';
+                    const currentOptionsText = currentOptions.getAttribute('data-options') || '';
+                    
+                    if (newOptions !== currentOptionsText) {
+                        if (data.options && Array.isArray(data.options) && data.options.length > 0) {
+                            const optionsList = document.createElement('ul');
+                            optionsList.style.cssText = 'list-style-type: disc; margin: 0; padding-left: 20px;';
+                            
+                            data.options.forEach(option => {
+                                const li = document.createElement('li');
+                                li.textContent = option.text;
+                                optionsList.appendChild(li);
+                            });
+                            
+                            // Clear and update
+                            currentOptions.innerHTML = '';
+                            currentOptions.appendChild(optionsList);
+                            currentOptions.setAttribute('data-options', newOptions);
+                        } else {
+                            currentOptions.textContent = 'No options available';
+                            currentOptions.removeAttribute('data-options');
+                        }
+                    }
                 }
             } catch (error) {
                 console.error('Error fetching state:', error);
-                document.querySelector('.strategy-text').textContent = 'Error loading state: ' + error.message;
-                document.querySelector('.timer-display').textContent = 'Error loading state';
             }
         }
 
@@ -260,9 +388,14 @@
                 if (!res.ok) throw new Error(`HTTP error! status: ${res.status}`);
                 const data = await res.json();
                 
+                if (!data || !data.history) {
+                    document.getElementById("historyContainer").innerHTML = '<p>No history available</p>';
+                    return;
+                }
+                
                 const historyHtml = [...data.history].reverse().map(round => `
                     <div class="history-item">
-                        <h3>Month ${round.month}</h3>
+                        <h3>Month ${round.month || 'N/A'}</h3>
                         <p><strong>Scenario:</strong> ${round.scenario || 'N/A'}</p>
                         <p><strong>Winning Option:</strong> ${round.winningOption || 'N/A'}</p>
                         <p><strong>Commentary:</strong> ${round.commentary || 'N/A'}</p>
@@ -270,10 +403,9 @@
                 `).join('');
                 
                 document.getElementById("historyContainer").innerHTML = historyHtml || '<p>No history available</p>';
-                console.log('History updated:', data.history); // Debug log
             } catch (error) {
                 console.error('Error fetching history:', error);
-                document.getElementById("historyContainer").innerHTML = `<p>Error loading history: ${error.message}</p>`;
+                document.getElementById("historyContainer").innerHTML = '<p>Error loading history</p>';
             }
         }
 
@@ -282,22 +414,54 @@
             if (!ticker) return;
 
             fetch(`${baseUrl}${basePath}/api/ticker`)
-                .then(res => res.json())
+                .then(res => {
+                    if (!res.ok) throw new Error(`HTTP error! status: ${res.status}`);
+                    return res.json();
+                })
                 .then(entries => {
-                    ticker.innerHTML = entries.map(entry => {
+                    if (!entries || !Array.isArray(entries)) {
+                        ticker.innerHTML = '<p>No activity yet</p>';
+                        return;
+                    }
+                    
+                    // Filter out duplicate month markers
+                    const seenMonths = new Set();
+                    const filteredEntries = entries.filter(entry => {
+                        if (entry && entry.type === 'month') {
+                            if (seenMonths.has(entry.month)) {
+                                return false;
+                            }
+                            seenMonths.add(entry.month);
+                        }
+                        return true;
+                    });
+                    
+                    ticker.innerHTML = filteredEntries.map(entry => {
+                        if (!entry) return '';
+                        
+                        // Handle month markers
+                        if (entry.type === 'month') {
+                            return `
+                                <div class="ticker-entry month-marker">
+                                    📅 <strong>Month ${entry.month}</strong> has begun
+                                </div>
+                            `;
+                        }
+                        
+                        // Handle regular entries
                         const emoji = entry.type === 'vote' ? '🗳️' : '🎲';
                         const action = entry.type === 'vote' ? 'voted' : 'played a wildcard:';
-                        const option = entry.type === 'vote' ? entry.option : `<strong>${entry.option}</strong>`;
+                        const option = entry.type === 'vote' ? (entry.option || 'N/A') : `<strong>${entry.option || 'N/A'}</strong>`;
                         return `
-                            <div class="ticker-entry ${entry.type}">
-                                ${emoji} <span class="username">${entry.user}</span> ${action} ${option}
+                            <div class="ticker-entry ${entry.type || ''}">
+                                ${emoji} <span class="username">${entry.user || 'Anonymous'}</span> ${action} ${option}
                             </div>
                         `;
-                    }).join('');
+                    }).join('') || '<p>No activity yet</p>';
                 })
                 .catch(error => {
                     console.error('Error fetching ticker:', error);
-                    ticker.innerHTML = `<p>Error loading ticker: ${error.message}</p>`;
+                    ticker.innerHTML = '<p>Error loading ticker</p>';
                 });
         }
 
@@ -307,38 +471,57 @@
                 if (!res.ok) throw new Error(`HTTP error! status: ${res.status}`);
                 const data = await res.json();
                 
-                if (data.votingAnalysis) {
-                    const analysisHtml = `
-                        <div class="analysis-section">
-                            ${data.votingAnalysis.userPatterns && data.votingAnalysis.userPatterns.length > 0 ? `
-                                <h3>User Patterns</h3>
-                                <ul>
-                                    ${data.votingAnalysis.userPatterns.map(pattern => `
-                                        <li><strong>${pattern.user}</strong>: ${pattern.pattern} (${pattern.frequency})</li>
-                                    `).join('')}
-                                </ul>
-                            ` : ''}
-                            ${data.votingAnalysis.generalPatterns && data.votingAnalysis.generalPatterns.length > 0 ? `
-                                <h3>General Patterns</h3>
-                                <ul>
-                                    ${data.votingAnalysis.generalPatterns.map(pattern => `
-                                        <li>${pattern}</li>
-                                    `).join('')}
-                                </ul>
-                            ` : ''}
-                            ${(!data.votingAnalysis.userPatterns || data.votingAnalysis.userPatterns.length === 0) && 
-                              (!data.votingAnalysis.generalPatterns || data.votingAnalysis.generalPatterns.length === 0) ? 
-                              '<p>No voting analysis available yet...</p>' : ''}
-                        </div>
-                    `;
-                    document.getElementById("votingAnalysisContent").innerHTML = analysisHtml;
-                    console.log('Voting analysis updated:', data.votingAnalysis); // Debug log
-                } else {
+                if (!data || !data.votingAnalysis) {
                     document.getElementById("votingAnalysisContent").innerHTML = '<p>No voting analysis available yet...</p>';
+                    return;
                 }
+
+                // Parse voting analysis if it's a string
+                let analysis = data.votingAnalysis;
+                if (typeof analysis === 'string' && analysis.trim()) {
+                    try {
+                        analysis = JSON.parse(analysis);
+                    } catch (e) {
+                        console.error('Error parsing voting analysis:', e);
+                        document.getElementById("votingAnalysisContent").innerHTML = '<p>Error parsing voting analysis</p>';
+                        return;
+                    }
+                }
+                
+                const analysisHtml = `
+                    <div class="analysis-section">
+                        ${analysis.summary ? `
+                            <div class="analysis-summary">
+                                <h3>Summary</h3>
+                                <p>${analysis.summary}</p>
+                            </div>
+                        ` : ''}
+                        ${analysis.userPatterns && analysis.userPatterns.length > 0 ? `
+                            <h3>User Patterns</h3>
+                            <ul>
+                                ${analysis.userPatterns.map(pattern => `
+                                    <li><strong>${pattern.user || 'Unknown'}</strong>: ${pattern.pattern || 'No pattern'} (${pattern.frequency || 'N/A'})</li>
+                                `).join('')}
+                            </ul>
+                        ` : ''}
+                        ${analysis.generalPatterns && analysis.generalPatterns.length > 0 ? `
+                            <h3>General Patterns</h3>
+                            <ul>
+                                ${analysis.generalPatterns.map(pattern => `
+                                    <li>${pattern || 'No pattern'}</li>
+                                `).join('')}
+                            </ul>
+                        ` : ''}
+                        ${(!analysis.userPatterns || analysis.userPatterns.length === 0) && 
+                          (!analysis.generalPatterns || analysis.generalPatterns.length === 0) &&
+                          !analysis.summary ? 
+                          '<p>No voting analysis available yet...</p>' : ''}
+                    </div>
+                `;
+                document.getElementById("votingAnalysisContent").innerHTML = analysisHtml;
             } catch (error) {
                 console.error('Error fetching voting analysis:', error);
-                document.getElementById("votingAnalysisContent").innerHTML = `<p>Error loading voting analysis: ${error.message}</p>`;
+                document.getElementById("votingAnalysisContent").innerHTML = '<p>Error loading voting analysis</p>';
             }
         }
 
@@ -368,6 +551,9 @@
                     statusIndicator.classList.remove('running');
                     statusText.textContent = 'GAME STOPPED';
                 }
+
+                // Immediately fetch updated state and voting analysis
+                await Promise.all([fetchState(), fetchVotingAnalysis()]);
             } catch (error) {
                 console.error('Error toggling game:', error);
                 alert('Error toggling game: ' + error.message);
@@ -382,6 +568,9 @@
                 });
                 if (!res.ok) throw new Error(`HTTP error! status: ${res.status}`);
                 const data = await res.json();
+                
+                // Immediately fetch updated state and voting analysis
+                await Promise.all([fetchState(), fetchVotingAnalysis()]);
                 alert('Next round forced successfully');
             } catch (error) {
                 console.error('Error forcing next round:', error);
@@ -398,7 +587,7 @@
             
             // Generate new QR code with hardcoded URL
             new QRCode(qrContainer, {
-                text: 'https://chat.door4.com/cookie-stand/',
+                text: 'https://sandbox.preview3.co.uk/cookie-stand',
                 width: 100,
                 height: 100,
                 colorDark: '#4CAF50',
@@ -415,6 +604,31 @@
         fetchHistory();
         updateTicker();
         fetchVotingAnalysis();
+
+        // Add restart game function
+        async function restartGame() {
+            if (!confirm('Are you sure you want to restart the game? This will reset everything to the beginning.')) {
+                return;
+            }
+            
+            try {
+                const res = await fetch(`${baseUrl}${basePath}/api/restart`, {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" }
+                });
+
+                if (res.ok) {
+                    // Refresh the state immediately
+                    await fetchState();
+                    // Update button states
+                    updateButtonStates();
+                } else {
+                    console.error('Failed to restart game');
+                }
+            } catch (error) {
+                console.error('Error restarting game:', error);
+            }
+        }
     </script>
 </body>
 </html>
